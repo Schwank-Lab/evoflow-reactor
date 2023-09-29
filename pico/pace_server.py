@@ -1,29 +1,31 @@
-def response_ok(data=None):
-    return {
-        'status': 'ok',
-        'data': data,
-    }
-
-def response_error(message):
-    return {
-        'status': 'error',
-        'message': message,
-    }
 
 class PaceServer: 
 
     def __init__(self, pace_ctl):
         self._pace_ctl = pace_ctl
         
-    def handle_request(self, request):
+    def handle_request(self, request, server):
         if request == 'start':
-            self._pace_ctl.start()
-            return response_ok()
+            self.start(server)
         elif request == 'stop':
             self._pace_ctl.stop()
-            return response_ok()
+            server.response_ok()
         elif request == 'current_state':
-            return response_ok(self._pace_ctl.current_state())
+            self.current_state(server)
+        elif request == 'load_state_history':
+            server.response_stream(self._pace_ctl.load_state_history)
         else:
-            return response_error('unknown request: ' + request)
+            server.response_error('unknown request: ' + request)
     
+    def start(self, server):
+        try:
+            self._pace_ctl.start() # TODO: this should happen off the main thread. 
+            return server.response_ok()
+        except Exception as e:
+            return server.response_error(e.message)
+    
+    def current_state(self, server):
+        try: 
+            return server.response_ok(self._pace_ctl.current_state())
+        except Exception as e:
+            return server.response_error(e.message)

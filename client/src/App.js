@@ -36,8 +36,22 @@ const App = () => {
     }
   ];
 
+  const downloadData = async () => {
+    const response = await fetch("http://localhost:8000/api/data?command=load_state_history");
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+
   return (
     <>
+      <button onClick={downloadData}>Download Data</button>
       <Plot data={odPlotData} layout={{ title: 'OD Plot' }} />
       <Plot data={incTempPlotData} layout={{ title: 'Inc Temp Plot' }} />
     </>

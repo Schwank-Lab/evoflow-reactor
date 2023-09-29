@@ -1,6 +1,7 @@
 from queue import PriorityQueue
 
-log = print
+def log(*args):
+    pass
 
 def s(seconds):
     return int(seconds * 1000)
@@ -51,20 +52,49 @@ class TaskQueue:
 
 class PaceController():
 
+    state_log = 'pace_state.csv'
+    exp_file = 'pace_exp.json'
+
     def __init__(self, hardware, config, clock):
         self._od_ctl = ODController(hardware, config)
         self._inc_temp_ctl = TempController(hardware.inc_temp_sensor, 
                 hardware.inc_heater, target_temp=37)
         self._task_queue = TaskQueue(clock)
+        self._is_running = False
+        self._experiment_loaded = False
+        self._clock = clock
         self._current_state = None
-        self._store_state_interval = config['store_state_interval']
-        self._record_state_interval = 1 # seconds 
+        self._store_state_interval_ms = config['store_state_interval_ms']
+        
+    def new_experiment(self): 
+        assert not self._is_running
+        with open(self.state_log, 'w') as f:
+            f.write('timestamp,od,inc_temp\n')
+        with open(self.exp_file, 'w') as f:
+            start_time = self._clock.time_since_epoch()
+            self._clock.set_start_time(start_time)
+            f.write(f"start_time: {start_time}\n")
+        self._experiment_loaded = True
 
-
-    def start(self, n_cycles=None): 
+    def load_experiment(self):
+        try:
+            with open(self.exp_file, 'r') as f:
+                start_time = float(f.readline().split(':')[1])
+                self._clock.set_start_time(start_time)
+                self._experiment_loaded = True
+                return True
+        except OSError:
+            return False 
+        
+    def start(self, n_cycles=None):
+        assert not self._is_running
+        assert self._experiment_loaded
+        self._is_running = True 
         self._od_ctl.start(self._task_queue)
-        self._inc_temp_ctl.start(self._task_queue, delay=ms(10))
+        self._inc_temp_ctl.start(self._task_queue, delay=ms(10)) # TODO: replace delay with priority
         self._task_queue.repeat(s(1), self._record_state, delay=ms(20))
+        self._task_queue.repeat(self._store_state_interval_ms, self._store_state, delay=ms(30))
+        
         while not self._task_queue.empty():
             self._task_queue.cycle()
             if n_cycles is not None:
@@ -74,15 +104,26 @@ class PaceController():
 
     def _record_state(self):
         log('PaceController#record_state')
-        store_every = self._store_state_interval // self._record_state_interval
         state = {
+            'timestamp': self._clock.time_ms() // 1000,
             'od': self._od_ctl.current_od(), 
             'inc_temp': self._inc_temp_ctl.current_temp(),
         }
         self._current_state = state
-    
+        
+    def _store_state(self):
+        log('Calling PaceController#store_state')
+        state = self._current_state
+        with open(self.state_log, 'a') as f:
+            f.write(f"{state['timestamp']},{state['od']},{state['inc_temp']}\n")
+
     def current_state(self):
         return self._current_state
+    
+    def load_state_history(self): 
+        with open(self.state_log, 'r') as f:
+            for l in f:
+                yield l
     
 
 class ODController():
