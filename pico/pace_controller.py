@@ -49,19 +49,25 @@ class TaskQueue:
 
     def empty(self):
         return self._task_queue.empty()
+    
+    def clear(self):
+        self._task_queue = PriorityQueue()
+    
 
 class PaceController():
 
     state_log = 'pace_state.csv'
     exp_file = 'pace_exp.json'
 
-    def __init__(self, hardware, config, clock):
+    def __init__(self, hardware, config, clock, thread):
+        self._thread = thread
         self._od_ctl = ODController(hardware, config)
         self._inc_temp_ctl = TempController(hardware.inc_temp_sensor, 
                 hardware.inc_heater, target_temp=37)
         self._task_queue = TaskQueue(clock)
         self._is_running = False
         self._experiment_loaded = False
+        self._state_time = None
         self._clock = clock
         self._current_state = None
         self._store_state_interval_ms = config['store_state_interval_ms']
@@ -71,9 +77,9 @@ class PaceController():
         with open(self.state_log, 'w') as f:
             f.write('timestamp,od,inc_temp\n')
         with open(self.exp_file, 'w') as f:
-            start_time = self._clock.time_since_epoch()
-            self._clock.set_start_time(start_time)
-            f.write(f"start_time: {start_time}\n")
+            self._start_time = self._clock.time_since_epoch()
+            self._clock.set_start_time(self._start_time)
+            f.write(f"start_time: {self._start_time}\n")
         self._experiment_loaded = True
 
     def load_experiment(self):
@@ -86,7 +92,13 @@ class PaceController():
         except OSError:
             return False 
         
-    def start(self, n_cycles=None):
+    def experiment_info(self): 
+        return {
+            'start_time': self._start_time,
+            'is_running': self._is_running
+        }
+
+    def start(self):
         assert not self._is_running
         assert self._experiment_loaded
         self._is_running = True 
@@ -94,13 +106,17 @@ class PaceController():
         self._inc_temp_ctl.start(self._task_queue, delay=ms(10)) # TODO: replace delay with priority
         self._task_queue.repeat(s(1), self._record_state, delay=ms(20))
         self._task_queue.repeat(self._store_state_interval_ms, self._store_state, delay=ms(30))
-        
-        while not self._task_queue.empty():
+        self._thread(self._run)
+
+    def stop(self):
+        assert self._is_running
+        self._is_running = False
+    
+    def _run(self):
+        while not self._task_queue.empty() and self._is_running:
             self._task_queue.cycle()
-            if n_cycles is not None:
-                n_cycles -= 1
-                if n_cycles == 0:
-                    break
+        # Note: it's ungraceful and we might end up in a broken state, e.g. with LED turned on 
+        self._task_queue.clear()
 
     def _record_state(self):
         log('PaceController#record_state')

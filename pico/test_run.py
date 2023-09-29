@@ -91,8 +91,7 @@ class WebServer(BaseHTTPRequestHandler):
 
         for row in stream(): 
             self.wfile.write(row.encode('utf-8'))
-            print(row)
-
+            
     def response_ok(self, data=None):
         self.response_json( {
             'status': 'ok',
@@ -109,9 +108,9 @@ class WebServer(BaseHTTPRequestHandler):
 if __name__ == '__main__':
     hardware = FakeHardware()
     config = {'target_od': 5, 'store_state_interval_ms': 1000}
-    controller = PaceController(hardware, config, Clock())
+    thread = lambda fn, *args: threading.Thread(target=fn, args=args).start()
+    controller = PaceController(hardware, config, Clock(), thread)
     controller.new_experiment()
-    threading.Thread(target=controller.start).start()
 
     pace_server = PaceServer(controller)
 
