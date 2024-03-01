@@ -51,14 +51,22 @@ class Clock:
     def sleep_ms(self, ms):
         time.sleep(ms/1000)
     
-class FakeHardware: 
+class FakeHardware:
 
     inc_led = FakePin("inc_led")
     inc_od_sensor = FakeSensor(10)
-    inc_temp_sensor = FakeSensor(36)
-    inc_heater = FakePin("inc_heater")
-    inc_medium_pump = FakePin("inc_medium_pump")    
-    inc_waste_pump = FakePin("inc_waste_pump")
+    temp_sensor_inc = FakeSensor(36)
+    heater_inc = FakePin("inc_heater")
+    stirrer_inc = FakePin("stirrer_inc")
+
+    temp_sensor_lagoon = FakeSensor(36)
+    heater_lagoon = FakePin("heater_lagoon")
+    stirrer_lagoon = FakePin("stirrer_lagoon")
+
+    pump_medium_to_incubator = FakePin("pump_medium_to_incubator")
+    pump_incubator_to_waste = FakePin("pump_incubator_to_waste")    
+    pump_incubator_to_lagoon = FakePin("pump_incubator_to_lagoon")
+    pump_lagoon_to_waste = FakePin("pump_lagoon_to_waste")
 
 class WebServer(BaseHTTPRequestHandler):
 
@@ -107,12 +115,16 @@ class WebServer(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     hardware = FakeHardware()
-    config = {'target_od': 5, 'store_state_interval_ms': 1000}
+    config = {
+            'target_od': 5, 
+            'lagoon_flow_rate': 3, # v/h
+            'record_state_interval_ms': 1000,
+            'store_state_interval_ms': 3000}
     thread = lambda fn, *args: threading.Thread(target=fn, args=args).start()
     controller = PaceController(hardware, config, Clock(), thread)
     controller.new_experiment()
+    controller.start()
+    # pace_server = PaceServer(controller)
 
-    pace_server = PaceServer(controller)
-
-    httpd = HTTPServer(('localhost', 8000), WebServer)
-    httpd.serve_forever()
+    # httpd = HTTPServer(('localhost', 8000), WebServer)
+    # httpd.serve_forever()

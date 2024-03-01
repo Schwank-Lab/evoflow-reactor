@@ -1,7 +1,5 @@
-from queue import PriorityQueue
-
 def log(*args):
-    pass
+    print(*args)
 
 def s(seconds):
     return int(seconds * 1000)
@@ -21,31 +19,71 @@ class Task:
     def run(self):
         self.fn(*self.args)
 
+class PriorityQueue:
+    def __init__(self):
+        self.queue = []
+
+    def put(self, item):
+        # Find the right position to insert the new item to maintain order
+        index = 0
+        for i, q_item in enumerate(self.queue):
+            if item < q_item:  # Compare items directly
+                index = i
+                break
+        else:
+            index = len(self.queue)
+
+        self.queue.insert(index, item)
+
+    def get(self):
+        if not self.queue:
+            raise ValueError("The queue is empty")
+        # Remove and return the item with the highest priority (smallest item)
+        return self.queue.pop(0)
+
+    def empty(self):
+        return len(self.queue) == 0
+
+    def qsize(self):
+        return len(self.queue)
+
+
 class TaskQueue:
     
     def __init__(self, clock):
         self._clock = clock
         self._task_queue = PriorityQueue() 
 
-    def put_task(self, t, task):
-        self._task_queue.put((t, task))
+    def _put_task(self, t, priority, task):
+        self._task_queue.put((t, priority, task))
     
-    def put(self, delay, task, *args):
-        self.put_task(self._clock.time_ms()+delay, Task(task, args))
+    def put(self, delay, task, *args,  priority=1):
+        """ Schedule a task to be executed at after a given delay. 
+        
+        Args:
+            priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
+        """
+        self._put_task(self._clock.time_ms()+delay, priority, Task(task, args))
 
-    def repeat(self, interval, task, *args, delay=0):
+    def repeat(self, interval, task, *args, priority=1):
+        """ Schedule a task to be executed at a given interval. 
+        
+        Args:
+            priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
+        """
         repeat_task = Task(task, args, interval=interval)
-        self.put_task(self._clock.time_ms()+delay, repeat_task)
+        self._put_task(self._clock.time_ms(), priority, repeat_task)
 
     def cycle(self):
+        """ Retrieve next task from the priority queue and execute it. """
         t = self._clock.time_ms()
-        t_next, task = self._task_queue.get()
+        t_next, priority, task = self._task_queue.get()
         if t_next > t: 
             self._clock.sleep_ms(t_next - t)
         log(f"TaskQueue#cycle {t_next/1000:.3f}")
         task.run()
         if task.repeat:
-            self.put_task(t_next+task.interval, task)
+            self._put_task(t_next+task.interval, priority, task)
 
     def empty(self):
         return self._task_queue.empty()
@@ -61,21 +99,30 @@ class PaceController():
 
     def __init__(self, hardware, config, clock, thread):
         self._thread = thread
-        self._od_ctl = ODController(hardware, config)
-        self._inc_temp_ctl = TempController(hardware.inc_temp_sensor, 
-                hardware.inc_heater, target_temp=37)
+        self._inc_temp_ctl = TempController(hardware.temp_sensor_inc, 
+                hardware.heater_inc, target_temp=37)
+        self._inc_stirrer_ctl = StirrerController(hardware.stirrer_inc)
+        self._inc_od_ctl = ODController(hardware, config)
+        
+        self._lagoon_temp_ctl = TempController(hardware.temp_sensor_lagoon,
+                hardware.heater_lagoon, target_temp=37)
+        self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon)
+        self._lagoon_flow_ctl = LagoonFlowController(hardware, config) 
+        
         self._task_queue = TaskQueue(clock)
+        
         self._is_running = False
         self._experiment_loaded = False
         self._state_time = None
         self._clock = clock
         self._current_state = None
         self._store_state_interval_ms = config['store_state_interval_ms']
+        self._record_state_interval_ms = config['record_state_interval_ms']
         
     def new_experiment(self): 
         assert not self._is_running
         with open(self.state_log, 'w') as f:
-            f.write('timestamp,od,inc_temp\n')
+            f.write('timestamp,inc_od,inc_temp,lagoon_temp,lagoon_flow_rate\n')
         with open(self.exp_file, 'w') as f:
             self._start_time = self._clock.time_since_epoch()
             self._clock.set_start_time(self._start_time)
@@ -102,10 +149,14 @@ class PaceController():
         assert not self._is_running
         assert self._experiment_loaded
         self._is_running = True 
-        self._od_ctl.start(self._task_queue)
-        self._inc_temp_ctl.start(self._task_queue, delay=ms(10)) # TODO: replace delay with priority
-        self._task_queue.repeat(s(1), self._record_state, delay=ms(20))
-        self._task_queue.repeat(self._store_state_interval_ms, self._store_state, delay=ms(30))
+        self._inc_temp_ctl.start(self._task_queue, priority=10)
+        self._inc_stirrer_ctl.start(self._task_queue, priority=9)
+        self._inc_od_ctl.start(self._task_queue, priority=8)
+        self._lagoon_temp_ctl.start(self._task_queue, priority=7)
+        self._lagoon_stirrer_ctl.start(self._task_queue, priority=6)
+        self._lagoon_flow_ctl.start(self._task_queue, priority=5)
+        self._task_queue.repeat(self._record_state_interval_ms, self._record_state, priority=1)
+        self._task_queue.repeat(self._store_state_interval_ms, self._store_state, priority=2)
         self._thread(self._run)
 
     def stop(self):
@@ -122,8 +173,11 @@ class PaceController():
         log('PaceController#record_state')
         state = {
             'timestamp': self._clock.time_ms() // 1000,
-            'od': self._od_ctl.current_od(), 
+            'inc_od': self._inc_od_ctl.current_od(), 
             'inc_temp': self._inc_temp_ctl.current_temp(),
+            'lagoon_temp': self._lagoon_temp_ctl.current_temp(),
+            'lagoon_flow_rate': self._lagoon_flow_ctl.flow_rate(),
+
         }
         self._current_state = state
         
@@ -131,7 +185,8 @@ class PaceController():
         log('Calling PaceController#store_state')
         state = self._current_state
         with open(self.state_log, 'a') as f:
-            f.write(f"{state['timestamp']},{state['od']},{state['inc_temp']}\n")
+            f.write(f"{state['timestamp']},{state['inc_od']},{state['inc_temp']},"
+                    "{state['lagoon_temp']},{state['lagoon_flow_rate']}\n")
 
     def current_state(self):
         return self._current_state
@@ -144,23 +199,28 @@ class PaceController():
 
 class ODController():
     
+    OD_UPDATE_INTERVAL = s(3)
+    TIME_LED_ON = ms(100)
+    TIME_MEDIUM_PUMP_ON = s(2)
+    TIME_WASTE_PUMP_ON = s(2.2)
+
     def __init__(self, hardware, config):
         self._led = hardware.inc_led
         self._od_sensor = hardware.inc_od_sensor
-        self._medium_pump = hardware.inc_medium_pump
-        self._waste_pump = hardware.inc_waste_pump
+        self._medium_pump = hardware.pump_medium_to_incubator
+        self._waste_pump = hardware.pump_incubator_to_waste
         self.load_config(config)
         self._current_od = None 
 
-    def start(self, task_queue: TaskQueue):
-        task_queue.repeat(s(3), self.maintain_od, task_queue)
+    def start(self, task_queue: TaskQueue, priority):
+        task_queue.repeat(ODController.OD_UPDATE_INTERVAL, self.maintain_od, task_queue, priority, priority=priority)
 
-    def maintain_od(self, task_queue):
+    def maintain_od(self, task_queue: TaskQueue, priority):
         log('ODController#maintain_od')
         self._led.on()
-        task_queue.put(ms(100), self._read_od)
-        task_queue.put(s(2), self._medium_pump.off)
-        task_queue.put(s(2.2), self._waste_pump.off)
+        task_queue.put(ODController.TIME_LED_ON, self._read_od, priority=priority)
+        task_queue.put(ODController.TIME_MEDIUM_PUMP_ON, self._medium_pump.off, priority=priority)
+        task_queue.put(ODController.TIME_WASTE_PUMP_ON, self._waste_pump.off, priority=priority)
         
 
     def _read_od(self):
@@ -181,6 +241,8 @@ class ODController():
         return self._current_od
     
 class TempController:
+
+    TEMP_UPDATE_INTERVAL = s(1)
     
     def __init__(self, temp_sensor, heater, target_temp):
         self._temp_sensor = temp_sensor
@@ -188,8 +250,8 @@ class TempController:
         self._target_temp = target_temp
         self._current_temp = None 
 
-    def start(self, task_queue, delay):
-        task_queue.repeat(s(1), self.maintain_temp, delay=delay)
+    def start(self, task_queue: TaskQueue, priority):
+        task_queue.repeat(TempController.TEMP_UPDATE_INTERVAL, self.maintain_temp, priority=priority)
 
     def maintain_temp(self):
         temp = self._temp_sensor.read()
@@ -204,5 +266,44 @@ class TempController:
         """ Current temp (in C), refreshed periocially. """ 
         return self._current_temp
 
-class LagoonController():
-    pass 
+
+class StirrerController:
+
+    def __init__(self, stirrer):
+        self._stirrer = stirrer
+
+    def start(self, task_queue, priority):
+        self._stirrer.on()
+        # TODO: turn off every 5 min.
+
+
+class LagoonFlowController():
+    
+    LAGOON_UPDATE_INTERVAL = s(20)
+    MAX_FLOW_RATE = 60 # v/h
+
+    def __init__(self, hardware, config): 
+        self._bacteria_pump = hardware.pump_incubator_to_lagoon
+        self._waste_pump = hardware.pump_lagoon_to_waste
+        self._flow_rate = config['lagoon_flow_rate']
+        self._duration_bacteria_pump_on = \
+            self._convert_flow_rate_to_on_frac(self._flow_rate) * LagoonFlowController.LAGOON_UPDATE_INTERVAL
+        self._duration_waste_pump_on = self._duration_bacteria_pump_on + ms(200)  
+
+    def start(self, task_queue, priority):
+        task_queue.repeat(LagoonFlowController.LAGOON_UPDATE_INTERVAL, 
+                          self._maintain_lagoon, task_queue, priority, priority=priority)
+
+    def _maintain_lagoon(self, task_queue: TaskQueue, priority): 
+        self._bacteria_pump.on()
+        self._waste_pump.on()
+        task_queue.put(self._duration_bacteria_pump_on, self._bacteria_pump.off, priority=priority)
+        task_queue.put(self._duration_waste_pump_on, self._waste_pump.off, priority=priority)
+        # TODO: add arabinose. 
+
+    def flow_rate(self): 
+        return self._flow_rate
+
+    def _convert_flow_rate_to_on_frac(self, flow_rate): 
+        return flow_rate / LagoonFlowController.MAX_FLOW_RATE
+
