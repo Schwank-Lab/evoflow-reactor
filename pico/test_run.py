@@ -12,15 +12,20 @@ from pace_server import PaceServer
 import time 
 
 class FakePin:
-    def __init__(self, name):
+    def __init__(self, name, value=0):
         self._name = name
+        self._value = value
     
     def on(self):
+        self._value = 1
         print(self._name, "on")
     
     def off(self):
+        self._value = 0
         print(self._name, "off")
 
+    def value(self): 
+        return self._value
 
 class FakeSensor:
 
@@ -29,6 +34,42 @@ class FakeSensor:
 
     def read(self):
         return self._val
+
+class FakeStepper: 
+
+    def __init__(self, name): 
+        self._name = name
+    
+    def step(self):
+        print(self._name, "step")
+
+    def step_forward(self): 
+        print(self._name, "step forward")
+
+    def step_reverse(self):
+        print(self._name, "step reverse")
+
+class FakePump:
+
+    def __init__(self, name):
+        self._name = name
+
+    def set_speed(self, speed_frac):
+        print(self._name, "speed set to", speed_frac)
+
+    def on(self): 
+        print(self._name, "on")
+
+    def off(self):
+        print(self._name, "off")
+
+class FakeStirrer:
+
+    def __init__(self, name):
+        self._name = name
+
+    def set_speed(self, speed_frac):
+        print(self._name, "speed set to", speed_frac)
 
 
 class Clock:
@@ -57,16 +98,20 @@ class FakeHardware:
     inc_od_sensor = FakeSensor(10)
     temp_sensor_inc = FakeSensor(36)
     heater_inc = FakePin("inc_heater")
-    stirrer_inc = FakePin("stirrer_inc")
+    stirrer_inc = FakeStirrer("stirrer_inc")
 
     temp_sensor_lagoon = FakeSensor(36)
     heater_lagoon = FakePin("heater_lagoon")
-    stirrer_lagoon = FakePin("stirrer_lagoon")
+    stirrer_lagoon = FakeStirrer("stirrer_lagoon")
 
-    pump_medium_to_incubator = FakePin("pump_medium_to_incubator")
-    pump_incubator_to_waste = FakePin("pump_incubator_to_waste")    
-    pump_incubator_to_lagoon = FakePin("pump_incubator_to_lagoon")
-    pump_lagoon_to_waste = FakePin("pump_lagoon_to_waste")
+    pump_medium_to_incubator = FakePump("pump_medium_to_incubator")
+    pump_incubator_to_waste = FakePump("pump_incubator_to_waste")    
+    pump_incubator_to_lagoon = FakePump("pump_incubator_to_lagoon")
+    pump_lagoon_to_waste = FakePump("pump_lagoon_to_waste")
+    stepper_arabinose_to_lagoon = FakeStepper("stepper_bacteria_to_lagoon")
+
+    button_arabinose_stepper_forward = FakePin("button_arabinose_stepper_forward", value=1)
+    button_arabinose_stepper_reverse = FakePin("button_arabinose_stepper_reverse", value=1)
 
 class WebServer(BaseHTTPRequestHandler):
 
@@ -116,10 +161,14 @@ class WebServer(BaseHTTPRequestHandler):
 if __name__ == '__main__':
     hardware = FakeHardware()
     config = {
-            'target_od': 5, 
+            'target_od': 0.8, 
             'lagoon_flow_rate': 3, # v/h
+            'lagoon_volume': 7, # ml
             'record_state_interval_ms': 1000,
-            'store_state_interval_ms': 3000}
+            'store_state_interval_ms': 3000,
+            'arabinose_stock_concentration': 2000, # mM
+            'arabinose_target_concentration': 40, # mM
+            }
     thread = lambda fn, *args: threading.Thread(target=fn, args=args).start()
     controller = PaceController(hardware, config, Clock(), thread)
     controller.new_experiment()

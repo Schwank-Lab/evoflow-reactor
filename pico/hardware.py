@@ -14,14 +14,14 @@ class Clock:
     
     def time_since_epoch(self):
         """ Time in seconds since epoch"""
-        return int(time.ticks_ms()) # TODO: change
+        return int(time.ticks_ms())
     
-    def set_start_time(self, start):
+    def  set_start_time(self, start):
         """ Set start time in milliseconds"""
         self._start = start
 
     def sleep_ms(self, ms):
-        time.sleep_ms(ms)
+        time.sleep_ms(int(ms))
 
 
 class ODSensor:
@@ -30,9 +30,7 @@ class ODSensor:
         self._adc = adc
 
     def mapReverse(x): ## Map values to reverse: from a,b to c,d (since OD measurement is inverse)
-        #y=(x-a)/(b-a)*(d-c)+c
-        y=(x-1)/(65535-1)*(1-65535)+65535
-        return y
+        return 65536 - x
 
     def read(self):
         return ODSensor.mapReverse(self._adc.read_u16())
@@ -51,16 +49,67 @@ class TempSensor:
 class Stirrer: 
 
     Stir_DutyCycle = 50 ## 50% duty cycle
-
+    
+    FULL_SPEED = 65_535
+    
     def __init__(self, pin): 
         self._motor = PWM(pin) ## use PWM to set speed of stirrer
         self._motor.freq(1000) ## test a few, to see which frequency works best with fan. 500hz works on Duet2 boards. 
 
     def on(self):
-        self._motor.duty_u16(int((Stirrer.Stir_DutyCycle/100)*65_535)) ## write duty cycle to Pin.
+        self.set_speed(speed_frac=1.0)
 
+    def set_speed(self, speed_frac):
+        # print('setting speed', top_speed_frac)
+        self._motor.duty_u16(int(speed_frac * Stirrer.FULL_SPEED))
+                  
     def off(self):
         self._motor.duty_u16(0)
+
+class Pump:
+    
+    FULL_SPEED = 65_535
+    
+    def __init__(self, pin):
+        self._motor = PWM(pin) ## use PWM to set speed of stirrer
+        self._motor.freq(1000) ## test a few, to see which frequency works best with fan. 500hz works on Duet2 boards. 
+
+    def on(self):
+        self.set_speed(speed_frac=1.0)
+    
+    def set_speed(self, speed_frac):
+        self._motor.duty_u16(int(Pump.FULL_SPEED*speed_frac))
+    
+    def off(self):
+        self._motor.duty_u16(0)
+    
+
+class StepperMotor:
+    
+    FULL_STEP_SEQUENCE = [ ## this are 4 steps
+            [1,0,0,0],
+            [0,1,0,0],
+            [0,0,1,0],
+            [0,0,0,1]
+    ]
+    
+    def __init__(self, pins):
+        self._stepper = pins 
+
+    def step(self):
+        self.step_forward()
+
+    def step_forward(self):
+        self._step(StepperMotor.FULL_STEP_SEQUENCE)
+
+    def step_reverse(self): 
+        self._step(StepperMotor.FULL_STEP_SEQUENCE[::-1])
+    
+    def _step(self, step_seq):
+        for step in step_seq:
+            for i in range(len(self._stepper)):
+                self._stepper[i].value(step[i])
+                time.sleep_ms(1)
 
 
 class Hardware:
@@ -75,7 +124,18 @@ class Hardware:
     heater_lagoon = Pin(8, Pin.OUT, value=0)
     stirrer_lagoon = Stirrer(Pin(20, Pin.OUT))
 
-    pump_medium_to_incubator = Pin(6, Pin.OUT, value=0)
-    pump_incubator_to_waste = Pin(7, Pin.OUT, value=0)
-    pump_incubator_to_lagoon = Pin(26, Pin.OUT, value=0)
-    pump_lagoon_to_waste = Pin(22, Pin.OUT, value=0) 
+    pump_medium_to_incubator = Pump(Pin(6, Pin.OUT, value=0))
+    pump_incubator_to_waste = Pump(Pin(7, Pin.OUT, value=0))
+    pump_incubator_to_lagoon = Pump(Pin(26, Pin.OUT, value=0))
+    pump_lagoon_to_waste = Pump(Pin(22, Pin.OUT, value=0)) 
+
+    stepper_arabinose_to_lagoon = StepperMotor([
+                                        Pin(12, Pin.OUT), #IN1
+                                        Pin(13, Pin.OUT), #IN2
+                                        Pin(14, Pin.OUT), #IN3
+                                        Pin(15, Pin.OUT) #IN4
+                                    ])
+    
+    button_arabinose_stepper_forward = Pin(18, Pin.IN, Pin.PULL_UP) 
+    button_arabinose_stepper_reverse = Pin(19, Pin.IN, Pin.PULL_UP)
+
