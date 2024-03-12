@@ -1,8 +1,11 @@
+import './tailwind.output.css';
+
 import React, { useEffect, useState, useRef} from "react";
 import Plot from 'react-plotly.js';
 
 const App = () => {
   const [odData, setOdData] = useState([]);
+  const [timestamps, setTimestamps] = useState([]);
   const [incTempData, setIncTempData] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [startTime, setStartTime] = useState(null);
@@ -22,6 +25,7 @@ const App = () => {
         if (status === "ok") {
           setOdData([...odData, data.od]);
           setIncTempData([...incTempData, data.inc_temp]);
+          setTimestamps([...timestamps, formatTimeInterval(data.timestamp)]);
         }
       }
       
@@ -36,6 +40,7 @@ const App = () => {
   const odPlotData = [
     {
       y: odData,
+      x: timestamps,
       type: 'scatter',
       mode: 'lines+markers'
     }
@@ -44,6 +49,7 @@ const App = () => {
   const incTempPlotData = [
     {
       y: incTempData,
+      x: timestamps,
       type: 'scatter',
       mode: 'lines+markers'
     }
@@ -121,17 +127,29 @@ const App = () => {
     return date.toLocaleString();
   };
 
+  function formatTimeInterval(seconds) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  
+
   return (
     <>
-      <div>
+      <div className="p-4 bg-gray-100">
         Experiment Start Date: {formatDate(startTime)}
       </div>
-      <button disabled={isRunning} onClick={newExperiment}>New Experiment</button>
-      <button onClick={startExperiment} disabled={isRunning === null ? true : isRunning}>Start</button>
-      <button onClick={stopExperiment} disabled={isRunning === null ? true : !isRunning}>Stop</button>
-      <button onClick={downloadData} disabled={isRunning || startTime === null}>Download Data</button>
-      <Plot data={odPlotData} layout={{ title: 'OD Plot' }} />
-      <Plot data={incTempPlotData} layout={{ title: 'Inc Temp Plot' }} />
+      <div className="grid lg:grid-cols-2 grid-cols-1 gap-4">
+        <div><Plot data={odPlotData} layout={{ title: 'Bacteria OD' }} /></div>
+        <div><Plot data={incTempPlotData} layout={{ title: 'Bacteria Temp' }} /></div>
+      </div>
+      <div className="flex space-x-4 mt-4 justify-center">
+        <button className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50" disabled={isRunning} onClick={newExperiment}>New Experiment</button>
+        <button className="bg-green-500 text-white px-4 py-2 rounded disabled:opacity-50" onClick={startExperiment} disabled={isRunning === null ? true : isRunning}>Start</button>
+        <button className="bg-red-500 text-white px-4 py-2 rounded disabled:opacity-50" onClick={stopExperiment} disabled={isRunning === null ? true : !isRunning}>Stop</button>
+        <button className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50" onClick={downloadData} disabled={isRunning || startTime === null}>Download Data</button>
+      </div>
     </>
   );
 };
