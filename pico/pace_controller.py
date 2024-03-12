@@ -117,7 +117,8 @@ class TaskQueue:
         debug(f"TaskQueue#cycle {t_next/1000:.3f}")
         task.run()
         if task.repeat:
-            self._put_task(t_next+task.interval, priority, task)
+            t = self._clock.time_ms()
+            self._put_task(t+task.interval, priority, task)
 
     def empty(self):
         return self._task_queue.empty()
@@ -128,11 +129,15 @@ class TaskQueue:
 
 class PaceController():
 
-    state_log = 'pace_state.cs  v'
+    state_log = 'pace_state.csv'
     exp_file = 'pace_exp.json'
 
     BACT_REACTOR_STIRRER_TOP_SPEED = 0.21
     LAGOON_STIRRER_TOP_SPEED = 0.3
+    CHECK_STEPPER_BUTTONS_INTERVAL = s(1)
+    PRIORITY_BACT_STIRRER = 9
+    PRIORITY_LAGOON_STIRRER = 6
+    
 
     def __init__(self, hardware, config, clock, thread):
         self._thread = thread
@@ -145,6 +150,11 @@ class PaceController():
                 hardware.heater_lagoon, target_temp=35)
         self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, PaceController.LAGOON_STIRRER_TOP_SPEED)
         self._lagoon_flow_ctl = LagoonFlowController(hardware, config) 
+
+        # control buttons 
+        self._btn_left = hardware.button_left
+        self._btn_right = hardware.button_right
+        self._ara_stepper = hardware.stepper_arabinose_to_lagoon
 
         self._task_queue = TaskQueue(clock)
         
@@ -187,13 +197,16 @@ class PaceController():
         assert self._experiment_loaded
         self._is_running = True 
         self._inc_temp_ctl.start(self._task_queue, priority=10)
-        self._inc_stirrer_ctl.start(self._task_queue, priority=9)
+        self._inc_stirrer_ctl.start(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
         self._inc_od_ctl.start(self._task_queue, priority=8)
         self._lagoon_temp_ctl.start(self._task_queue, priority=7)
-        self._lagoon_stirrer_ctl.start(self._task_queue, priority=6)
+        self._lagoon_stirrer_ctl.start(self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
         self._lagoon_flow_ctl.start(self._task_queue, priority=5)
         self._task_queue.repeat(self._record_state_interval_ms, self._record_state, priority=1)
         self._task_queue.repeat(self._store_state_interval_ms, self._store_state, priority=2)
+        self._task_queue.repeat(PaceController.CHECK_STEPPER_BUTTONS_INTERVAL, 
+                          self._handle_buttons, priority=3)
+        
         self._thread(self._run)
 
     def stop(self):
@@ -204,18 +217,41 @@ class PaceController():
         while not self._task_queue.empty() and self._is_running:
             self._task_queue.cycle()
         # Note: it's ungraceful and we might end up in a broken state, e.g. with LED turned on 
-        self._task_queue.clear()
+        self._task_queue.clear()    
+    
+    def _handle_buttons(self):
+        btn_left = self._btn_left.value()
+        btn_right = self._btn_right.value()
+        if btn_left == 0 and btn_right == 0:
+            info('Restarting the motors')
+            # Pressing two buttons simultaneously will re-start the stirrers
+            self._inc_stirrer_ctl.restart_motor(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
+            self._lagoon_stirrer_ctl.restart_motor(self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
+        elif btn_left == 0: 
+            self._handle_button_left()
+        elif btn_right == 0:
+            self._handle_button_right()
+            
+            
+    def _handle_button_left(self):
+        """ Pressing left button will drain ara from the syringe. """
+        while self._btn_left.value() == 0:
+            self._ara_stepper.step_forward()
+        
+    def _handle_button_right(self): 
+        """ Pressing right button will re-fill the syringe. """
+        while self._btn_right.value() == 0: 
+            self._ara_stepper.step_reverse()
 
     def _record_state(self):
         debug('PaceController#record_state')
         info('inc_od', self._inc_od_ctl.current_od())
         state = {
-            'timestamp': self._clock.time_ms() // 1000,
+            'timestamp': self._clock.time_since_epoch(),
             'inc_od': self._inc_od_ctl.current_od(), 
             'inc_temp': self._inc_temp_ctl.current_temp(),
             'lagoon_temp': self._lagoon_temp_ctl.current_temp(),
             'lagoon_flow_rate': self._lagoon_flow_ctl.flow_rate(),
-
         }
         self._current_state = state
         
@@ -317,9 +353,9 @@ class StirrerController:
         self._top_speed_frac = top_speed_frac
 
     def start(self, task_queue: TaskQueue, priority):
-        task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self._start_motor, task_queue, priority, priority=priority)
+        task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self.restart_motor, task_queue, priority, priority=priority)
 
-    def _start_motor(self, task_queue: TaskQueue, priority): 
+    def restart_motor(self, task_queue: TaskQueue, priority): 
         for speed_step in range(StirrerController.NUM_STEPS):
             speed_frac = self._top_speed_frac * speed_step / (StirrerController.NUM_STEPS - 1)
             task_queue.put(StirrerController.STEP_DELAY*speed_step, self._stirrer.set_speed, speed_frac, priority=priority)
@@ -327,7 +363,6 @@ class StirrerController:
 
 class LagoonFlowController():
     
-    CHECK_STEPPER_BUTTONS_INTERVAL = s(1)
     PUMP_BURST_DURATION = s(0.5)
     WASTE_BURST_DURATION = s(0.6)
 
@@ -342,9 +377,7 @@ class LagoonFlowController():
         self._flow_rate = config['lagoon_flow_rate']
         self._lagoon_volume = config['lagoon_volume']
         self._ara_conc = config['arabinose_target_concentration'] / config['arabinose_stock_concentration']
-        self._stepper_button_forward = hardware.button_arabinose_stepper_forward
-        self._stepper_button_reverse = hardware.button_arabinose_stepper_reverse
-
+        
         # convert flow rate from lv/h to ml/h
         bact_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * (1 - self._ara_conc)
         # calculate how many bursts we have to do per hour to achieve the flow rate
@@ -363,11 +396,7 @@ class LagoonFlowController():
                           self._maintain_bact_flow, task_queue, priority, priority=priority)
         task_queue.repeat(self._ara_step_interval, 
                           self._maintain_ara_flow, task_queue, priority, priority=priority+0.5)
-        task_queue.repeat(LagoonFlowController.CHECK_STEPPER_BUTTONS_INTERVAL, 
-                          self._handle_stepper_button_forward, priority=priority+0.6)
-        task_queue.repeat(LagoonFlowController.CHECK_STEPPER_BUTTONS_INTERVAL, 
-                          self._handle_stepper_button_reverse, priority=priority+0.7)
-
+        
     def _maintain_bact_flow(self, task_queue: TaskQueue, priority): 
         self._bacteria_pump.set_speed(PUMP_SPEED_FRAC)
         self._waste_pump.set_speed(PUMP_SPEED_FRAC)
@@ -377,16 +406,9 @@ class LagoonFlowController():
     def _maintain_ara_flow(self, task_queue: TaskQueue, priority): 
         self._ara_stepper.step()
 
-    def _handle_stepper_button_forward(self):
-        while self._stepper_button_forward.value() == 0:
-            self._ara_stepper.step_forward()
-        
-    def _handle_stepper_button_reverse(self): 
-        while self._stepper_button_reverse.value() == 0: 
-            self._ara_stepper.step_reverse()
-
     def flow_rate(self): 
         return self._flow_rate
+
 
 
 

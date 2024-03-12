@@ -14,8 +14,8 @@ class Clock:
     
     def time_since_epoch(self):
         """ Time in seconds since epoch"""
-        return int(time.ticks_ms())
-    
+        return time.time()
+
     def  set_start_time(self, start):
         """ Set start time in milliseconds"""
         self._start = start
@@ -136,6 +136,7 @@ class Hardware:
                                         Pin(15, Pin.OUT) #IN4
                                     ])
     
-    button_arabinose_stepper_forward = Pin(18, Pin.IN, Pin.PULL_UP) 
-    button_arabinose_stepper_reverse = Pin(19, Pin.IN, Pin.PULL_UP)
+    button_left = Pin(18, Pin.IN, Pin.PULL_UP) 
+    button_right = Pin(19, Pin.IN, Pin.PULL_UP)
+
 

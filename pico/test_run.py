@@ -110,8 +110,8 @@ class FakeHardware:
     pump_lagoon_to_waste = FakePump("pump_lagoon_to_waste")
     stepper_arabinose_to_lagoon = FakeStepper("stepper_bacteria_to_lagoon")
 
-    button_arabinose_stepper_forward = FakePin("button_arabinose_stepper_forward", value=1)
-    button_arabinose_stepper_reverse = FakePin("button_arabinose_stepper_reverse", value=1)
+    button_left = FakePin("button_arabinose_stepper_forward", value=1)
+    button_right = FakePin("button_arabinose_stepper_reverse", value=1)
 
 class WebServer(BaseHTTPRequestHandler):
 

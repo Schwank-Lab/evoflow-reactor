@@ -1,2 +1,4 @@
 pace_exp.json
 pace_state.csv
+**/*.pyc
+experiments/*
