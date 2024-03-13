@@ -23,6 +23,17 @@ class Clock:
     def sleep_ms(self, ms):
         time.sleep_ms(int(ms))
 
+    def localtime(self):
+        """Get local time as a formatted string.
+
+        Returns:
+            str: Formatted local time in the format YYYY-MM-DD_HH-MM-SS.
+        """
+        # Convert epoch time to a local time tuple
+        localtime_tuple = time.localtime()
+        # Format the local time as a string
+        return "{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}".format(*localtime_tuple[0:6])
+
 
 class ODSensor:
 
@@ -138,5 +149,6 @@ class Hardware:
     
     button_left = Pin(18, Pin.IN, Pin.PULL_UP) 
     button_right = Pin(19, Pin.IN, Pin.PULL_UP)
+
 
 

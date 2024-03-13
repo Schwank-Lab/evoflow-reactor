@@ -2,3 +2,6 @@ pace_exp.json
 pace_state.csv
 **/*.pyc
 experiments/*
+logs
+**/.DS_Store
+calibration/temp_calibration_logs

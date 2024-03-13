@@ -7,7 +7,9 @@ import csv
 import io
 
 
+import pace_controller
 from pace_controller import PaceController, s, ms
+from logger import Logger
 from pace_server import PaceServer
 import time 
 
@@ -91,6 +93,9 @@ class Clock:
 
     def sleep_ms(self, ms):
         time.sleep(ms/1000)
+
+    def localtime(self):
+        return  time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     
 class FakeHardware:
 
@@ -170,8 +175,10 @@ if __name__ == '__main__':
             'arabinose_target_concentration': 40, # mM
             }
     thread = lambda fn, *args: threading.Thread(target=fn, args=args).start()
+    pace_controller.logger = Logger.create_instance(Clock())
     controller = PaceController(hardware, config, Clock(), thread)
-    controller.new_experiment()
+
+    controller._new_experiment()
     controller.start()
     # pace_server = PaceServer(controller)
 

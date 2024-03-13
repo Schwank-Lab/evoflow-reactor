@@ -2,6 +2,7 @@
 
 PUMP_SPEED_FRAC = 0.4 # all pumps are rotated at this fraction of top speed
 
+logger = None 
 
 def sensor_to_od(measurement):
     INTERCEPT = -14.706894907315895
@@ -9,26 +10,6 @@ def sensor_to_od(measurement):
     real_od = SLOPE * measurement + INTERCEPT
     return real_od
 
-
-L_DEBUG = 1
-L_INFO = 2
-L_CRITICAL = 3
-
-# Adjust level
-L_LEVEL = L_INFO
-
-def log(level, *args):
-    if level >= L_LEVEL:
-        print(*args)
-    
-def debug(*args):
-    log(L_DEBUG, *args)
-
-def info(*args): 
-    log(L_INFO, *args)
-        
-def critical(*args):
-    log(L_CRITICAL, *args)
 
 def ms(milliseconds):
     return int(milliseconds)
@@ -114,7 +95,7 @@ class TaskQueue:
         t_next, priority, task = self._task_queue.get()
         if t_next > t: 
             self._clock.sleep_ms(t_next - t)
-        debug(f"TaskQueue#cycle {t_next/1000:.3f}")
+        logger.debug(f"TaskQueue#cycle {t_next/1000:.3f}")
         task.run()
         if task.repeat:
             t = self._clock.time_ms()
@@ -129,10 +110,7 @@ class TaskQueue:
 
 class PaceController():
 
-    state_log = 'pace_state.csv'
-    exp_file = 'pace_exp.json'
-
-    BACT_REACTOR_STIRRER_TOP_SPEED = 0.21
+    BACT_REACTOR_STIRRER_TOP_SPEED = 0.24
     LAGOON_STIRRER_TOP_SPEED = 0.3
     CHECK_STEPPER_BUTTONS_INTERVAL = s(1)
     PRIORITY_BACT_STIRRER = 9
@@ -142,7 +120,7 @@ class PaceController():
     def __init__(self, hardware, config, clock, thread):
         self._thread = thread
         self._inc_temp_ctl = TempController(hardware.temp_sensor_inc, 
-                hardware.heater_inc, target_temp=37)
+                hardware.heater_inc, target_temp=37.5)
         self._inc_stirrer_ctl = StirrerController(hardware.stirrer_inc, PaceController.BACT_REACTOR_STIRRER_TOP_SPEED)
         self._inc_od_ctl = ODController(hardware, config)
         
@@ -157,7 +135,6 @@ class PaceController():
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
 
         self._task_queue = TaskQueue(clock)
-        
         self._is_running = False
         self._experiment_loaded = False
         self._state_time = None
@@ -165,36 +142,41 @@ class PaceController():
         self._current_state = None
         self._store_state_interval_ms = config['store_state_interval_ms']
         self._record_state_interval_ms = config['record_state_interval_ms']
-        
-    def new_experiment(self): 
-        assert not self._is_running
-        with open(self.state_log, 'w') as f:
-            f.write('timestamp,inc_od,inc_temp,lagoon_temp,lagoon_flow_rate\n')
-        with open(self.exp_file, 'w') as f:
-            self._start_time = self._clock.time_since_epoch()
-            self._clock.set_start_time(self._start_time)
-            f.write(f"start_time: {self._start_time}\n")
-        self._experiment_loaded = True
 
-    def load_experiment(self):
-        try:
-            with open(self.exp_file, 'r') as f:
-                start_time = float(f.readline().split(':')[1])
-                self._clock.set_start_time(start_time)
-                self._experiment_loaded = True
-                return True
-        except OSError:
-            return False 
+        self._new_experiment()
         
-    def experiment_info(self): 
-        return {
-            'start_time': self._start_time,
-            'is_running': self._is_running
-        }
+    def _new_experiment(self):
+        assert not self._is_running
+
+        timestamp = self._clock.time_since_epoch()  
+        
+        # Use the timestamp in the filenames
+        state_log_filename = f"logs/state_log_{timestamp}.csv"
+        self.state_log = state_log_filename
+ 
+        # Write headers to the state_log file
+        with open(self.state_log, 'w') as f:
+            f.write(f"# Experiment started at: {self._clock.localtime()}\n")
+            f.write('timestamp,inc_od,inc_temp,inc_dilution,lagoon_temp,lagoon_flow_rate\n')
+
+    # def load_experiment(self):
+    #     try:
+    #         with open(self.exp_file, 'r') as f:
+    #             start_time = float(f.readline().split(':')[1])
+    #             self._clock.set_start_time(start_time)
+    #             self._experiment_loaded = True
+    #             return True
+    #     except OSError:
+    #         return False  
+        
+    # def experiment_info(self): 
+    #     return {
+    #         'start_time': self._start_time,
+    #         'is_running': self._is_running
+    #     }
 
     def start(self):
         assert not self._is_running
-        assert self._experiment_loaded
         self._is_running = True 
         self._inc_temp_ctl.start(self._task_queue, priority=10)
         self._inc_stirrer_ctl.start(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
@@ -223,7 +205,7 @@ class PaceController():
         btn_left = self._btn_left.value()
         btn_right = self._btn_right.value()
         if btn_left == 0 and btn_right == 0:
-            info('Restarting the motors')
+            logger.info('Restarting the motors')
             # Pressing two buttons simultaneously will re-start the stirrers
             self._inc_stirrer_ctl.restart_motor(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
             self._lagoon_stirrer_ctl.restart_motor(self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
@@ -244,23 +226,23 @@ class PaceController():
             self._ara_stepper.step_reverse()
 
     def _record_state(self):
-        debug('PaceController#record_state')
-        info('inc_od', self._inc_od_ctl.current_od())
+        logger.debug('PaceController#record_state')
         state = {
             'timestamp': self._clock.time_since_epoch(),
             'inc_od': self._inc_od_ctl.current_od(), 
             'inc_temp': self._inc_temp_ctl.current_temp(),
+            'inc_dilution': self._inc_od_ctl.total_dilution(),
             'lagoon_temp': self._lagoon_temp_ctl.current_temp(),
             'lagoon_flow_rate': self._lagoon_flow_ctl.flow_rate(),
         }
         self._current_state = state
         
     def _store_state(self):
-        debug('Calling PaceController#store_state')
+        logger.debug('Calling PaceController#store_state')
         state = self._current_state
         with open(self.state_log, 'a') as f:
-            f.write("{},{},{},{},{}\n".format(
-                state['timestamp'], state['inc_od'], state['inc_temp'],state['lagoon_temp'], state['lagoon_flow_rate']))
+            f.write("{},{},{},{},{},{}\n".format(
+                state['timestamp'], state['inc_od'], state['inc_temp'], state['inc_dilution'], state['lagoon_temp'], state['lagoon_flow_rate']))
     
     def current_state(self):
         return self._current_state
@@ -278,6 +260,7 @@ class ODController():
     TIME_OD_DELAY = ms(50)
     TIME_MEDIUM_PUMP_ON = s(2)
     TIME_WASTE_PUMP_ON = s(2.2)
+    UPPER_OD_THRESHOLD = 1.4
 
     def __init__(self, hardware, config):
         self._led = hardware.inc_led
@@ -286,12 +269,13 @@ class ODController():
         self._waste_pump = hardware.pump_incubator_to_waste
         self.load_config(config)
         self._current_od = None 
+        self._total_dilution = 0
 
     def start(self, task_queue: TaskQueue, priority):
         task_queue.repeat(ODController.OD_UPDATE_INTERVAL, self.maintain_od, task_queue, priority, priority=priority)
 
     def maintain_od(self, task_queue: TaskQueue, priority):
-        debug('ODController#maintain_od')
+        logger.debug('ODController#maintain_od')
         self._led.on()
         task_queue.put(ODController.TIME_OD_DELAY, self._read_od, priority=priority)
         task_queue.put(ODController.TIME_LED_ON, self._led.off, priority=priority)
@@ -302,9 +286,12 @@ class ODController():
     def _read_od(self):
         od = sensor_to_od(self._od_sensor.read())
         self._current_od = od
-        debug('ODController: measured od', od)
-        if od > self._target_od:
-            debug('ODController pumps on')
+        logger.debug('ODController: measured od', od)
+        if od > ODController.UPPER_OD_THRESHOLD:
+            logger.debug('ODController: OD too high, not pumping')
+        elif od > self._target_od:
+            logger.debug('ODController pumps on')
+            self._total_dilution += 1
             self._medium_pump.set_speed(PUMP_SPEED_FRAC)
             self._waste_pump.set_speed(PUMP_SPEED_FRAC)
 
@@ -314,6 +301,14 @@ class ODController():
     def current_od(self):
         """ Current incubator OD, refreshed periocially. """ 
         return self._current_od
+    
+    def total_dilution(self):
+        """ Total dilution of the incubator.
+        
+        Measured as the number of times the waste pump has been activated. 
+        """
+        return self._total_dilution
+
     
 class TempController:
 
@@ -331,7 +326,7 @@ class TempController:
     def maintain_temp(self):
         temp = self._temp_sensor.read()
         self._current_temp = temp
-        debug('TempController: measured temp', temp)
+        logger.debug('TempController: measured temp', temp)
         if temp < self._target_temp:
             self._heater.on()
         else:
@@ -384,12 +379,12 @@ class LagoonFlowController():
         bact_bursts_per_hour = bact_flow_ml_per_hour / LagoonFlowController.BACT_PUMP_VOL_PER_BURST
         # calculate how often to we have to do bursts
         self._bact_burst_interval = h(1) // bact_bursts_per_hour
-        info('LagoonFlowController: bacteria pump burst every ', self._bact_burst_interval // 1000, 's')
+        logger.info('LagoonFlowController: bacteria pump burst every ', self._bact_burst_interval // 1000, 's')
 
         ara_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * self._ara_conc
         ara_steps_per_hour = ara_flow_ml_per_hour / LagoonFlowController.ARA_STEP_VOL_PER_STEP
         self._ara_step_interval = h(1) // ara_steps_per_hour 
-        info('LagoonFlowController: ara step every', self._ara_step_interval // 1000, 's')
+        logger.info('LagoonFlowController: ara step every', self._ara_step_interval // 1000, 's')
 
     def start(self, task_queue, priority):
         task_queue.repeat(self._bact_burst_interval, 
@@ -408,7 +403,4 @@ class LagoonFlowController():
 
     def flow_rate(self): 
         return self._flow_rate
-
-
-
 
