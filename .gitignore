@@ -5,3 +5,5 @@ experiments/*
 logs
 **/.DS_Store
 calibration/temp_calibration_logs
+.vscode
+.micropico
