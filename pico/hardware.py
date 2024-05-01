@@ -35,6 +35,13 @@ class Clock:
         return "{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}".format(*localtime_tuple[0:6])
 
 
+def sensor_to_od(measurement):
+    INTERCEPT = -14.706894907315895
+    SLOPE = 0.00024892679660541
+    real_od = SLOPE * measurement + INTERCEPT
+    return real_od
+
+
 class ODSensor:
 
     def __init__(self, adc): 
@@ -45,12 +52,17 @@ class ODSensor:
 
     def read(self):
         return ODSensor.mapReverse(self._adc.read_u16())
+    
         
 class TempSensor: 
 
     def __init__(self, pin):
         self._sensor = ds18x20.DS18X20(onewire.OneWire(pin))
         self._device = self._sensor.scan()
+        if len(self._device) == 0:
+            raise ValueError(f'No sensor found on the pin {pin}')
+        elif len(self._device) > 1:
+            raise ValueError(f'Multiple sensors found on the pin {pin}')
 
     def read(self):
         self._sensor.convert_temp()
@@ -81,19 +93,35 @@ class Pump:
     
     FULL_SPEED = 65_535
     
-    def __init__(self, pin):
-        self._motor = PWM(pin) ## use PWM to set speed of stirrer
-        self._motor.freq(1000) ## test a few, to see which frequency works best with fan. 500hz works on Duet2 boards. 
-
+    MODE_PWM = 0
+    MODE_PIN = 1
+    
+    def __init__(self, pin, mode=0):
+        self._mode = mode
+        if mode == Pump.MODE_PIN:
+            self._pin = pin
+        elif mode == Pump.MODE_PWM:
+            self._motor = PWM(pin) ## use PWM to set speed of stirrer
+            self._motor.freq(1000) ## test a few, to see which frequency works best with fan. 500hz works on Duet2 boards. 
+        else:
+            raise ValueError('Uknown pump mode', mode)
+        
     def on(self):
-        self.set_speed(speed_frac=1.0)
+        if self._mode == Pump.MODE_PWM:
+            self.set_speed(speed_frac=1.0)
+        else:
+            self._pin.value(1)
     
     def set_speed(self, speed_frac):
+        if self._mode != Pump.MODE_PWM:
+            raise ValueError('Cannot regulate pump speed unless in PWM mode.')
         self._motor.duty_u16(int(Pump.FULL_SPEED*speed_frac))
     
     def off(self):
-        self._motor.duty_u16(0)
-    
+        if self._mode == Pump.MODE_PWM:
+            self._motor.duty_u16(0)
+        else:
+            self._pin.value(0)
 
 class StepperMotor:
     
@@ -135,10 +163,11 @@ class Hardware:
     heater_lagoon = Pin(8, Pin.OUT, value=0)
     stirrer_lagoon = Stirrer(Pin(20, Pin.OUT))
 
-    pump_medium_to_incubator = Pump(Pin(6, Pin.OUT, value=0))
-    pump_incubator_to_waste = Pump(Pin(7, Pin.OUT, value=0))
+    pump_medium_to_incubator = Pump(Pin(7, Pin.OUT, value=0))
+    pump_incubator_to_waste = Pump(Pin(6, Pin.OUT, value=0), mode=Pump.MODE_PIN)
     pump_incubator_to_lagoon = Pump(Pin(26, Pin.OUT, value=0))
-    pump_lagoon_to_waste = Pump(Pin(22, Pin.OUT, value=0)) 
+    pump_lagoon_to_waste = Pump(Pin(22, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
+
 
     stepper_arabinose_to_lagoon = StepperMotor([
                                         Pin(12, Pin.OUT), #IN1
@@ -149,6 +178,7 @@ class Hardware:
     
     button_left = Pin(18, Pin.IN, Pin.PULL_UP) 
     button_right = Pin(19, Pin.IN, Pin.PULL_UP)
+
 
 
 

@@ -76,11 +76,15 @@ def measure_od():
     
     t_start = time.time()
     for _ in range(OD_MEASURE_DURATION_SEC // OD_MEASURE_INTERVAL_SEC):
+        Hardware.inc_led.on()
+        time.sleep_ms(50) # todo: share the config with the controller
         curr_raw = Hardware.inc_od_sensor.read()
         curr_od = sensor_to_od(curr_raw)
         print(f'RAW={curr_raw:.2f}, OD={curr_od:.2f}')
         raws.append(curr_raw)
         ods.append(curr_od)
+        Hardware.inc_led.off()
+        time.sleep_ms(50) # todo: share the config with the controller
         time.sleep(OD_MEASURE_INTERVAL_SEC)
     
     return compute_stats(raws), compute_stats(ods)
@@ -114,11 +118,11 @@ def test_heaters():
     
     num_measurements = TEMP_MEASURE_DURATION_SEC // TEMP_MEASURE_INTERVAL_SEC
     for i in range(1, num_measurements+1):
+        time.sleep(TEMP_MEASURE_INTERVAL_SEC)        
         print(f'Measurement #{i}')
         for (name, _, sensor) in HEATERS:
             t = sensor.read()
             print(f'{name}:\t T={t:.2f}')
-        time.sleep(TEMP_MEASURE_INTERVAL_SEC)        
         
     
     for (name, heater, _) in HEATERS:
@@ -128,12 +132,15 @@ def test_heaters():
 
 def run_diagnostics():
     stop_all()
-    # test_pumps()
-    # test_stepper()
-    # test_stirrers()
-    # test_od()
+    test_pumps()
+    test_stepper()
+    test_stirrers()
+    test_od()
     test_heaters()
     
 
 run_diagnostics()
+
+
+
 
