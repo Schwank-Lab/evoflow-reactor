@@ -7,3 +7,4 @@ logs
 calibration/temp_calibration_logs
 .vscode
 .micropico
+pico/pico.code-workspace
