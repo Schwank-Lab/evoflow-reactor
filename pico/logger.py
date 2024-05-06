@@ -30,11 +30,14 @@ class Logger:
             self._create_log_file()
 
     def _create_log_file(self):
-        if not os.path.exists(Logger.log_dir):
-            os.makedirs(Logger.log_dir)
+        try:
+            os.mkdir(Logger.log_dir)
+        except OSError:
+            # Assume the directory exists
+            pass
         # Simplified timestamp using epoch seconds
         timestamp = self.clock.time_since_epoch()
-        self.log_file = os.path.join(Logger.log_dir, f"log_{timestamp}.txt")
+        self.log_file = Logger.log_dir + "log_" + str(timestamp) + ".txt"
         
     def log(self, level, *args):
         if level >= self.level:

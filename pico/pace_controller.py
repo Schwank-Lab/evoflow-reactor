@@ -1,14 +1,6 @@
-## Calibrated constants
-
-PUMP_SPEED_FRAC = 0.4 # all pumps are rotated at this fraction of top speed
+from hardware_config import HardwareConfig
 
 logger = None 
-
-def sensor_to_od(measurement):
-    INTERCEPT = -14.706894907315895
-    SLOPE = 0.00024892679660541
-    real_od = SLOPE * measurement + INTERCEPT
-    return real_od
 
 
 def ms(milliseconds):
@@ -110,24 +102,22 @@ class TaskQueue:
 
 class PaceController():
 
-    BACT_REACTOR_STIRRER_TOP_SPEED = 0.24
-    LAGOON_STIRRER_TOP_SPEED = 0.3
     CHECK_STEPPER_BUTTONS_INTERVAL = s(1)
     PRIORITY_BACT_STIRRER = 9
     PRIORITY_LAGOON_STIRRER = 6
     
 
-    def __init__(self, hardware, config, clock, thread):
+    def __init__(self, hardware, hardware_config: HardwareConfig, config, clock, thread):
         self._thread = thread
         self._inc_temp_ctl = TempController(hardware.temp_sensor_inc, 
-                hardware.heater_inc, target_temp=37.5)
-        self._inc_stirrer_ctl = StirrerController(hardware.stirrer_inc, PaceController.BACT_REACTOR_STIRRER_TOP_SPEED)
+                hardware.heater_inc, target_temp=37) # TODO: move target temp to the experiment config
+        self._inc_stirrer_ctl = StirrerController(hardware.stirrer_inc, hardware_config.incubator_stirrer_top_speed_frac)
         self._inc_od_ctl = ODController(hardware, config)
         
         self._lagoon_temp_ctl = TempController(hardware.temp_sensor_lagoon,
-                hardware.heater_lagoon, target_temp=35)
-        self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, PaceController.LAGOON_STIRRER_TOP_SPEED)
-        self._lagoon_flow_ctl = LagoonFlowController(hardware, config) 
+                hardware.heater_lagoon, target_temp=35)  # TODO: move target temp to the experiment config
+        self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, hardware_config.lagoon_stirrer_top_speed_frac)
+        self._lagoon_flow_ctl = LagoonFlowController(hardware, hardware_config, config) 
 
         # control buttons 
         self._btn_left = hardware.button_left
@@ -284,7 +274,7 @@ class ODController():
         
 
     def _read_od(self):
-        od = sensor_to_od(self._od_sensor.read())
+        od = self._od_sensor.read_od()
         self._current_od = od
         logger.debug('ODController: measured od', od)
         if od > ODController.UPPER_OD_THRESHOLD:
@@ -292,8 +282,8 @@ class ODController():
         elif od > self._target_od:
             logger.debug('ODController pumps on')
             self._total_dilution += 1
-            self._medium_pump.set_speed(PUMP_SPEED_FRAC)
-            self._waste_pump.set_speed(PUMP_SPEED_FRAC)
+            self._medium_pump.on()
+            self._waste_pump.on()
 
     def load_config(self, config):
         self._target_od = config['target_od']
@@ -351,38 +341,41 @@ class StirrerController:
         task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self.restart_motor, task_queue, priority, priority=priority)
 
     def restart_motor(self, task_queue: TaskQueue, priority): 
+        
         for speed_step in range(StirrerController.NUM_STEPS):
             speed_frac = self._top_speed_frac * speed_step / (StirrerController.NUM_STEPS - 1)
             task_queue.put(StirrerController.STEP_DELAY*speed_step, self._stirrer.set_speed, speed_frac, priority=priority)
         
+        # Add a speed ramp
+        task_queue.put(StirrerController.STEP_DELAY*StirrerController.NUM_STEPS, 
+                       self._stirrer.set_speed, self._top_speed_frac * 1.1, priority=priority)
+        task_queue.put(StirrerController.STEP_DELAY*(StirrerController.NUM_STEPS+1),
+                       self._stirrer.set_speed, self._top_speed_frac, priority=priority)
 
 class LagoonFlowController():
     
-    PUMP_BURST_DURATION = s(0.5)
-    WASTE_BURST_DURATION = s(0.6)
-
-    BACT_PUMP_VOL_PER_BURST = 0.165 # ml
-    SYRINGE_ML_PER_MM = 30/78 
-    ARA_STEP_VOL_PER_STEP = 0.5*SYRINGE_ML_PER_MM/2038*4 # ml
-
-    def __init__(self, hardware, config): 
+    def __init__(self, hardware, hardware_config, experiment_config): 
         self._bacteria_pump = hardware.pump_incubator_to_lagoon
         self._waste_pump = hardware.pump_lagoon_to_waste
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
-        self._flow_rate = config['lagoon_flow_rate']
-        self._lagoon_volume = config['lagoon_volume']
-        self._ara_conc = config['arabinose_target_concentration'] / config['arabinose_stock_concentration']
+        self._flow_rate = experiment_config['lagoon_flow_rate']
+        self._lagoon_volume = experiment_config['lagoon_volume']
+        self._ara_conc = experiment_config['arabinose_target_concentration'] / experiment_config['arabinose_stock_concentration']
         
         # convert flow rate from lv/h to ml/h
         bact_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * (1 - self._ara_conc)
         # calculate how many bursts we have to do per hour to achieve the flow rate
-        bact_bursts_per_hour = bact_flow_ml_per_hour / LagoonFlowController.BACT_PUMP_VOL_PER_BURST
+        bact_bursts_per_hour = bact_flow_ml_per_hour / hardware_config.pump_incubator_to_lagoon_burst_vol_ml
         # calculate how often to we have to do bursts
         self._bact_burst_interval = h(1) // bact_bursts_per_hour
+        self._bact_burst_duration = hardware_config.pump_incubator_to_lagoon_burst_duration_s
+        self._waste_burst_duration = hardware_config.pump_lagoon_to_waste_burst_duration_s
         logger.info('LagoonFlowController: bacteria pump burst every ', self._bact_burst_interval // 1000, 's')
-
+        if self._bact_burst_interval < self._bact_burst_duration:
+            raise ValueError('Bacteria pump burst interval too short, smaller than burst duration')
+        
         ara_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * self._ara_conc
-        ara_steps_per_hour = ara_flow_ml_per_hour / LagoonFlowController.ARA_STEP_VOL_PER_STEP
+        ara_steps_per_hour = ara_flow_ml_per_hour / hardware_config.induction_ml_per_step
         self._ara_step_interval = h(1) // ara_steps_per_hour 
         logger.info('LagoonFlowController: ara step every', self._ara_step_interval // 1000, 's')
 
@@ -393,10 +386,10 @@ class LagoonFlowController():
                           self._maintain_ara_flow, task_queue, priority, priority=priority+0.5)
         
     def _maintain_bact_flow(self, task_queue: TaskQueue, priority): 
-        self._bacteria_pump.set_speed(PUMP_SPEED_FRAC)
-        self._waste_pump.set_speed(PUMP_SPEED_FRAC)
-        task_queue.put(LagoonFlowController.PUMP_BURST_DURATION, self._bacteria_pump.off, priority=priority)
-        task_queue.put(LagoonFlowController.WASTE_BURST_DURATION, self._waste_pump.off, priority=priority)
+        self._bacteria_pump.on()
+        self._waste_pump.on()
+        task_queue.put(self._bact_burst_duration, self._bacteria_pump.off, priority=priority)
+        task_queue.put(self._waste_burst_duration, self._waste_pump.off, priority=priority)
         
     def _maintain_ara_flow(self, task_queue: TaskQueue, priority): 
         self._ara_stepper.step()

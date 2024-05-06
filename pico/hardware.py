@@ -1,3 +1,5 @@
+from hardware_config import HardwareConfig
+
 from machine import ADC, Pin, Timer, PWM
 import onewire
 import ds18x20
@@ -35,39 +37,42 @@ class Clock:
         return "{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}".format(*localtime_tuple[0:6])
 
 
-def sensor_to_od(measurement):
-    INTERCEPT = -14.706894907315895
-    SLOPE = 0.00024892679660541
-    real_od = SLOPE * measurement + INTERCEPT
-    return real_od
-
-
 class ODSensor:
 
-    def __init__(self, adc): 
+    SENSOR_MAX_VAL = 1 << 16
+    
+    def __init__(self, adc, f_od_convert): 
         self._adc = adc
+        self._f_od_convert = f_od_convert
 
-    def mapReverse(x): ## Map values to reverse: from a,b to c,d (since OD measurement is inverse)
-        return 65536 - x
-
-    def read(self):
-        return ODSensor.mapReverse(self._adc.read_u16())
+    def read_od(self): 
+        return self._f_od_convert(self.read_raw())
+      
+    def read_raw(self):
+        return ODSensor.SENSOR_MAX_VAL -  self._adc.read_u16() # invert the readding
     
         
 class TempSensor: 
 
-    def __init__(self, pin):
-        self._sensor = ds18x20.DS18X20(onewire.OneWire(pin))
-        self._device = self._sensor.scan()
-        if len(self._device) == 0:
+    def __init__(self, pin, f_temp_convert):
+        self._driver = ds18x20.DS18X20(onewire.OneWire(pin))
+        self._sensor = self._driver.scan()
+        if len(self._sensor) == 0:
             raise ValueError(f'No sensor found on the pin {pin}')
-        elif len(self._device) > 1:
+        elif len(self._sensor) > 1:
             raise ValueError(f'Multiple sensors found on the pin {pin}')
+        self._sensor = self._sensor[0]
+        self._f_temp_convert = f_temp_convert
 
+    def read_raw(self): 
+        self._driver.convert_temp() 
+        # Note: it's recommended for the conversion to finish before reading the temperature
+        # In our case, the first measurement might be screwed up. 
+        return self._driver.read_temp(self._sensor)
+    
     def read(self):
-        self._sensor.convert_temp()
-        return self._sensor.read_temp(self._device[0])
-
+        return self._f_temp_convert(self.read_raw())
+        
 
 class Stirrer: 
 
@@ -95,7 +100,8 @@ class Pump:
     
     MODE_PWM = 0
     MODE_PIN = 1
-    
+     
+    # TODO: integrate the speed somehow
     def __init__(self, pin, mode=0):
         self._mode = mode
         if mode == Pump.MODE_PIN:
@@ -153,31 +159,32 @@ class StepperMotor:
 
 class Hardware:
 
-    inc_led = Pin(10, Pin.OUT, value=0)
-    inc_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)))
-    temp_sensor_inc = TempSensor(Pin(16, Pin.IN))
-    heater_inc = Pin(9, Pin.OUT, value=0)
-    stirrer_inc = Stirrer(Pin(21, Pin.OUT))
+    def __init__(self, config: HardwareConfig): 
+        self.inc_led = Pin(10, Pin.OUT, value=0)
+        self.inc_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)), config.incubator_od_convert)
+        self.temp_sensor_inc = TempSensor(Pin(16, Pin.IN), config.incubator_temp_convert)
+        self.heater_inc = Pin(9, Pin.OUT, value=0)
+        self.stirrer_inc = Stirrer(Pin(21, Pin.OUT))
 
-    temp_sensor_lagoon = TempSensor(Pin(17, Pin.IN))
-    heater_lagoon = Pin(8, Pin.OUT, value=0)
-    stirrer_lagoon = Stirrer(Pin(20, Pin.OUT))
+        self.temp_sensor_lagoon = TempSensor(Pin(17, Pin.IN), config.lagoon_temp_convert)
+        self.heater_lagoon = Pin(8, Pin.OUT, value=0)
+        self.stirrer_lagoon = Stirrer(Pin(20, Pin.OUT))
 
-    pump_medium_to_incubator = Pump(Pin(7, Pin.OUT, value=0))
-    pump_incubator_to_waste = Pump(Pin(6, Pin.OUT, value=0), mode=Pump.MODE_PIN)
-    pump_incubator_to_lagoon = Pump(Pin(26, Pin.OUT, value=0))
-    pump_lagoon_to_waste = Pump(Pin(22, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
+        self.pump_medium_to_incubator = Pump(Pin(7, Pin.OUT, value=0))
+        self.pump_incubator_to_waste = Pump(Pin(6, Pin.OUT, value=0), mode=Pump.MODE_PIN)
+        self.pump_incubator_to_lagoon = Pump(Pin(26, Pin.OUT, value=0))
+        self.pump_lagoon_to_waste = Pump(Pin(22, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 
 
-    stepper_arabinose_to_lagoon = StepperMotor([
-                                        Pin(12, Pin.OUT), #IN1
-                                        Pin(13, Pin.OUT), #IN2
-                                        Pin(14, Pin.OUT), #IN3
-                                        Pin(15, Pin.OUT) #IN4
-                                    ])
-    
-    button_left = Pin(18, Pin.IN, Pin.PULL_UP) 
-    button_right = Pin(19, Pin.IN, Pin.PULL_UP)
+        self.stepper_arabinose_to_lagoon = StepperMotor([
+                                            Pin(12, Pin.OUT), #IN1
+                                            Pin(13, Pin.OUT), #IN2
+                                            Pin(14, Pin.OUT), #IN3
+                                            Pin(15, Pin.OUT) #IN4
+                                        ])
+        
+        self.button_left = Pin(18, Pin.IN, Pin.PULL_UP) 
+        self.button_right = Pin(19, Pin.IN, Pin.PULL_UP)
 
 
 

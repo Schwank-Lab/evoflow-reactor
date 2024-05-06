@@ -1,4 +1,5 @@
-from hardware import Hardware, sensor_to_od
+import hardware_config
+from hardware import Hardware
 import time
 import math
 
@@ -11,21 +12,23 @@ OD_MEASURE_INTERVAL_SEC = 1
 TEMP_MEASURE_INTERVAL_SEC = 10
 TEMP_MEASURE_DURATION_SEC = 60
 
+hw = Hardware(hardware_config.default_config())
+
 STIRRERS = [
-    ('Inucbator Stirrer', Hardware.stirrer_inc),
-    ('Lagoon Stirrer', Hardware.stirrer_lagoon),
+    ('Inucbator Stirrer', hw.stirrer_inc),
+    ('Lagoon Stirrer', hw.stirrer_lagoon),
 ]
 
 PUMPS = [
-    ('pump_medium_to_incubator', Hardware.pump_medium_to_incubator),
-    ('pump_incubator_to_waste', Hardware.pump_incubator_to_waste),
-    ('pump_incubator_to_lagoon', Hardware.pump_incubator_to_lagoon),
-    ('pump_lagoon_to_waste', Hardware.pump_lagoon_to_waste )
+    ('pump_medium_to_incubator', hw.pump_medium_to_incubator),
+    ('pump_incubator_to_waste', hw.pump_incubator_to_waste),
+    ('pump_incubator_to_lagoon', hw.pump_incubator_to_lagoon),
+    ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste )
     ]
 
 HEATERS = [
-    ('Temp Incubator', Hardware.heater_inc, Hardware.temp_sensor_inc),
-    ('Temp Lagoon', Hardware.heater_lagoon, Hardware.temp_sensor_lagoon)
+    ('Temp Incubator', hw.heater_inc, hw.temp_sensor_inc),
+    ('Temp Lagoon', hw.heater_lagoon, hw.temp_sensor_lagoon)
     ]
 
 def stop_all():
@@ -52,7 +55,7 @@ def test_stepper():
     print(f'Stepper stepper_arabinose_to_lagoon on for {STEPPER_ON_DURATION_SEC}')
     t_start = time.time()
     while (time.time() - t_start) < STEPPER_ON_DURATION_SEC:
-        Hardware.stepper_arabinose_to_lagoon.step_reverse()
+        hw.stepper_arabinose_to_lagoon.step_reverse()
     
 
 def test_stirrers():
@@ -74,16 +77,15 @@ def measure_od():
     raws = []
     ods = []
     
-    t_start = time.time()
     for _ in range(OD_MEASURE_DURATION_SEC // OD_MEASURE_INTERVAL_SEC):
-        Hardware.inc_led.on()
+        hw.inc_led.on()
         time.sleep_ms(50) # todo: share the config with the controller
-        curr_raw = Hardware.inc_od_sensor.read()
-        curr_od = sensor_to_od(curr_raw)
+        curr_raw = hw.inc_od_sensor.read_raw()
+        curr_od = hw.inc_od_sensor.read_od()
         print(f'RAW={curr_raw:.2f}, OD={curr_od:.2f}')
         raws.append(curr_raw)
         ods.append(curr_od)
-        Hardware.inc_led.off()
+        hw.inc_led.off()
         time.sleep_ms(50) # todo: share the config with the controller
         time.sleep(OD_MEASURE_INTERVAL_SEC)
     
@@ -132,9 +134,9 @@ def test_heaters():
 
 def run_diagnostics():
     stop_all()
-    test_pumps()
-    test_stepper()
-    test_stirrers()
+    # test_pumps()
+    # test_stepper()
+    # test_stirrers()
     test_od()
     test_heaters()
     
