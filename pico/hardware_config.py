@@ -1,0 +1,43 @@
+SYRINGE_ML_PER_MM = 30/78
+
+class HardwareConfig: 
+
+    def __init__(self, config):
+        self._config = config
+        self.incubator_stirrer_top_speed_frac = config['incubator_stirrer_top_speed_frac']
+        self.lagoon_stirrer_top_speed_frac = config['lagoon_stirrer_top_speed_frac']
+        self.pump_incubator_to_lagoon_burst_vol_ml = config['pump_incubator_to_lagoon_burst_vol_ml']
+        self.pump_incubator_to_lagoon_burst_duration_s = config['pump_incubator_to_lagoon_burst_duration_s']
+        self.pump_lagoon_to_waste_burst_duration_s = config['pump_lagoon_to_waste_burst_duration_s']
+        self.syringe_ml_per_mm =  
+    
+    def incubator_od_convert(self, measurement): 
+        intercept, slope = self._config['incubator_od']['intercept'], self._config['incubator_od']['slope']
+        return slope * measurement + intercept
+    
+    def incubator_temp_convert(self, measurement): 
+        intercept, slope = self._config['incubator_temp']['intercept'], self._config['incubator_temp']['slope']
+        return slope * measurement + intercept
+    
+    def lagoon_temp_convert(self, measurement): 
+        intercept, slope = self._config['lagoon_temp']['intercept'], self._config['lagoon_temp']['slope']
+        return slope * measurement + intercept
+     
+    
+def default_config() -> HardwareConfig:
+    cfg =  {
+        'incubator_od': {'intercept': -14.706894907315895, 'slope': 0.00024892679660541},
+        'incubator_temp': {'intercept': 0, 'slope': 1},
+        'lagoon_temp': {'intercept': 0, 'slope': 1},
+        'incubator_stirrer_top_speed_frac': 0.24,
+        'lagoon_stirrer_top_speed_frac': 0.4,
+        'pumps_speed_frac':  0.4,
+        'pump_incubator_to_lagoon_burst_vol_ml': 0.165,
+        'pump_incubator_to_lagoon_burst_duration_s': 0.5,
+        'pump_lagoon_to_waste_burst_duration_s': 0.6,
+        'induction_ml_per_step': 0.5*SYRINGE_ML_PER_MM/2038*4
+    } 
+    return HardwareConfig(cfg)
+
+def load_hardware_config(file): 
+    pass 
