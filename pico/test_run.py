@@ -7,9 +7,10 @@ import csv
 import io
 
 
+import hardware_config
 import pace_controller
 from pace_controller import PaceController, s, ms
-from logger import Logger
+from logger import FileLogger
 from pace_server import PaceServer
 import time 
 
@@ -35,6 +36,9 @@ class FakeSensor:
         self._val = val
 
     def read(self):
+        return self._val
+    
+    def read_od(self):
         return self._val
 
 class FakeStepper: 
@@ -99,68 +103,25 @@ class Clock:
     
 class FakeHardware:
 
-    inc_led = FakePin("inc_led")
-    inc_od_sensor = FakeSensor(10)
-    temp_sensor_inc = FakeSensor(36)
-    heater_inc = FakePin("inc_heater")
-    stirrer_inc = FakeStirrer("stirrer_inc")
+    def __init__(self): 
+        self.inc_led = FakePin("inc_led")
+        self.inc_od_sensor = FakeSensor(10)
+        self.temp_sensor_inc = FakeSensor(36)
+        self.heater_inc = FakePin("inc_heater")
+        self.stirrer_inc = FakeStirrer("stirrer_inc")
 
-    temp_sensor_lagoon = FakeSensor(36)
-    heater_lagoon = FakePin("heater_lagoon")
-    stirrer_lagoon = FakeStirrer("stirrer_lagoon")
+        self.temp_sensor_lagoon = FakeSensor(36)
+        self.heater_lagoon = FakePin("heater_lagoon")
+        self.stirrer_lagoon = FakeStirrer("stirrer_lagoon")
 
-    pump_medium_to_incubator = FakePump("pump_medium_to_incubator")
-    pump_incubator_to_waste = FakePump("pump_incubator_to_waste")    
-    pump_incubator_to_lagoon = FakePump("pump_incubator_to_lagoon")
-    pump_lagoon_to_waste = FakePump("pump_lagoon_to_waste")
-    stepper_arabinose_to_lagoon = FakeStepper("stepper_bacteria_to_lagoon")
+        self.pump_medium_to_incubator = FakePump("pump_medium_to_incubator")
+        self.pump_incubator_to_waste = FakePump("pump_incubator_to_waste")    
+        self.pump_incubator_to_lagoon = FakePump("pump_incubator_to_lagoon")
+        self.pump_lagoon_to_waste = FakePump("pump_lagoon_to_waste")
+        self.stepper_arabinose_to_lagoon = FakeStepper("stepper_bacteria_to_lagoon")
 
-    button_left = FakePin("button_arabinose_stepper_forward", value=1)
-    button_right = FakePin("button_arabinose_stepper_reverse", value=1)
-
-class WebServer(BaseHTTPRequestHandler):
-
-    def do_GET(self):
-        if self.path == '/favicon.ico':
-            self.send_response(404)
-            return
-
-        query_components = parse_qs(urlparse(self.path).query)
-        command = query_components.get("command", [None])[0]
-        print('WebServer#do_GET', 'Command received: ', command)
-        pace_server.handle_request(command, self)
-        
-    def response_json(self, data):
-        print(data)
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        
-        json_str = json.dumps(data)
-        self.wfile.write(json_str.encode('utf-8'))
-
-    def response_stream(self, stream):
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/csv')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Content-Disposition', 'attachment; filename=data.csv')
-        self.end_headers()
-
-        for row in stream(): 
-            self.wfile.write(row.encode('utf-8'))
-            
-    def response_ok(self, data=None):
-        self.response_json( {
-            'status': 'ok',
-            'data': data,
-        })
-
-    def response_error(self, message):
-        self.response_json( {
-            'status': 'error',
-            'message': message,
-        })
+        self.button_left = FakePin("button_arabinose_stepper_forward", value=1)
+        self.button_right = FakePin("button_arabinose_stepper_reverse", value=1)
 
 
 if __name__ == '__main__':
@@ -175,8 +136,8 @@ if __name__ == '__main__':
             'arabinose_target_concentration': 40, # mM
             }
     thread = lambda fn, *args: threading.Thread(target=fn, args=args).start()
-    pace_controller.logger = Logger.create_instance(Clock())
-    controller = PaceController(hardware, config, Clock(), thread)
+    pace_controller._logger = FileLogger.create_instance(Clock())
+    controller = PaceController(hardware, hardware_config.default_config(), config, Clock(), thread)
 
     controller._new_experiment()
     controller.start()

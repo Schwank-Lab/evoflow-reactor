@@ -1,0 +1,9 @@
+{
+    "wifi_ssid": "evo-net",
+    "wifi_pwd": "hungryphage",
+    "mqtt_host": "192.168.31.10",
+    "mqtt_uname": "",
+    "mqtt_pwd": "",
+    "mqtt_topic": "io",
+    "reactor_id": "pico1"
+}

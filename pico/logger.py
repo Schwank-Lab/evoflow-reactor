@@ -4,49 +4,13 @@ L_DEBUG = 1
 L_INFO = 2
 L_CRITICAL = 3
 
-class Logger:
-    _instance = None
-    log_dir = 'logs/'
 
-    @classmethod
-    def create_instance(cls, clock):
-        """Create the Logger instance with a specific clock."""
-        if not cls._instance:
-            cls._instance = Logger(clock)
-        return cls._instance
+class Logger: 
 
-    @classmethod
-    def get_instance(cls):
-        """Retrieve the existing Logger instance."""
-        if not cls._instance:
-            raise Exception("Logger instance not created yet. Call create_instance first.")
-        return cls._instance
-
-    def __init__(self, clock):
-        if not hasattr(self, 'initialized'):  # Prevent reinitialization
-            self.initialized = True
-            self.level = L_INFO
-            self.clock = clock
-            self._create_log_file()
-
-    def _create_log_file(self):
-        try:
-            os.mkdir(Logger.log_dir)
-        except OSError:
-            # Assume the directory exists
-            pass
-        # Simplified timestamp using epoch seconds
-        timestamp = self.clock.time_since_epoch()
-        self.log_file = Logger.log_dir + "log_" + str(timestamp) + ".txt"
-        
-    def log(self, level, *args):
-        if level >= self.level:
-            level_name = self._get_level_name(level)
-            timestamp = self.clock.localtime()
-            message = "[{}] [{}] {}".format(timestamp, level_name, ' '.join(map(str, args)))
-            with open(self.log_file, 'a') as f:
-                f.write(message + '\n')
-
+    def __init__(self, clock, level=L_INFO):
+        self.level = level
+        self.clock = clock
+  
     def debug(self, *args):
         self.log(L_DEBUG, *args)
 
@@ -65,11 +29,44 @@ class Logger:
             return "CRITICAL"
         else:
             return "UNKNOWN"
+        
+    def log(self, level, *args):
+        if level >= self.level:
+            level_name = self._get_level_name(level)
+            timestamp = self.clock.localtime()
+            message = "[{}] [{}] {}".format(timestamp, level_name, ' '.join(map(str, args)))
+            self._record_log_message(message)
+
+    def _record_log_message(self, message):
+        raise NotImplementedError()
+    
+
+class FileLogger(Logger):
+    log_dir = 'logs/'
+
+    def __init__(self, clock, level=L_INFO):
+        super().__init__(clock, level)
+        self._create_log_file()
+
+    def _create_log_file(self):
+        try:
+            os.mkdir(FileLogger.log_dir)
+        except OSError:
+            # Assume the directory exists
+            pass
+        # Simplified timestamp using epoch seconds
+        timestamp = self.clock.time_since_epoch()
+        self.log_file = FileLogger.log_dir + "log_" + str(timestamp) + ".txt"
+        
+  
+    def _record_log_message(self, message):
+        with open(self.log_file, 'a') as f:
+                f.write(message + '\n')
 
     @staticmethod
     def clear_old_logs(clock, days=2):
-        for filename in os.listdir(Logger.log_dir):
-            file_path = os.path.join(Logger.log_dir, filename)
+        for filename in os.listdir(FileLogger.log_dir):
+            file_path = os.path.join(FileLogger.log_dir, filename)
             # Use file creation time for comparison (not available in MicroPython, so using a workaround)
             try:
                 # Workaround: Assume file name contains creation timestamp
@@ -79,3 +76,34 @@ class Logger:
             except ValueError:
                 # Filename does not contain a valid timestamp; ignore
                 pass
+
+class MqttLogger(Logger): 
+
+    TOPIC_LOG = 'log'
+    
+    def __init__(self, mqtt_client, clock, level=L_INFO):
+        super().__init__(clock, level)
+        self.mqtt_client = mqtt_client
+
+    def _record_log_message(self, message):
+        self.mqtt_client.publish(MqttLogger.TOPIC_LOG, message)
+
+
+class ConsoleLogger(Logger): 
+
+    def __init__(self, clock, level=L_INFO):
+        super().__init__(clock, level)
+
+    def _record_log_message(self, message):
+        print(message)
+
+
+class CompositeLogger(Logger): 
+
+    def __init__(self, loggers):
+        self.loggers = loggers
+
+    def log(self, level, *args):
+        for logger in self.loggers:
+            logger.log(level, *args)
+            

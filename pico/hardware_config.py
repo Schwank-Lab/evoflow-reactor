@@ -1,4 +1,7 @@
+import json
+
 SYRINGE_ML_PER_MM = 30/78
+HAHRDWARE_CONFIG_FILE = 'configs/hardware_config.json'
 
 class HardwareConfig: 
 
@@ -9,7 +12,8 @@ class HardwareConfig:
         self.pump_incubator_to_lagoon_burst_vol_ml = config['pump_incubator_to_lagoon_burst_vol_ml']
         self.pump_incubator_to_lagoon_burst_duration_s = config['pump_incubator_to_lagoon_burst_duration_s']
         self.pump_lagoon_to_waste_burst_duration_s = config['pump_lagoon_to_waste_burst_duration_s']
-        self.syringe_ml_per_mm =  
+        self.induction_ml_per_step = config['induction_ml_per_step']
+
     
     def incubator_od_convert(self, measurement): 
         intercept, slope = self._config['incubator_od']['intercept'], self._config['incubator_od']['slope']
@@ -39,5 +43,6 @@ def default_config() -> HardwareConfig:
     } 
     return HardwareConfig(cfg)
 
-def load_hardware_config(file): 
-    pass 
+def load_hardware_config(file = HAHRDWARE_CONFIG_FILE) -> dict: 
+    with open(file, 'r') as f: 
+        return json.load(f)

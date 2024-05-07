@@ -1,13 +1,13 @@
 from hardware import Hardware, Clock
 import hardware_config
 import pace_controller
-from logger import Logger
+from logger import FileLogger
 
 
 hw_config = hardware_config.default_config()
 hw = Hardware(hw_config)
 clk = Clock()
-pace_controller.logger = Logger.create_instance(clk)
+pace_controller._logger = FileLogger.create_instance(clk)
 
 def stop_all(): 
     hw.stirrer_inc.off()
