@@ -2,7 +2,7 @@ import json
 
 class MqttStateRecorder:
     
-    TOPIC_STATE = 'monitor'
+    TOPIC_STATE = 'experiment_monitor'
 
     def __init__(self, reactor_id, mqtt_client):
         self._mqtt_client = mqtt_client
@@ -10,10 +10,9 @@ class MqttStateRecorder:
 
     def record(self, state): 
         # TODO: try to reconnect if not connected 
-        msg = json.dumps({
-            'reactor_id': self._reactor_id,
-            'state': state
-        })
+        msg = state.copy()
+        msg['reactor_id'] = self._reactor_id
+        msg= json.dumps(msg)
         self._mqtt_client.publish(MqttStateRecorder.TOPIC_STATE, msg) 
 
 

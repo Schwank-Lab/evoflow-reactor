@@ -1,4 +1,5 @@
 import os
+import json 
 
 L_DEBUG = 1
 L_INFO = 2
@@ -81,12 +82,17 @@ class MqttLogger(Logger):
 
     TOPIC_LOG = 'log'
     
-    def __init__(self, mqtt_client, clock, level=L_INFO):
+    def __init__(self, reactor_id, mqtt_client, clock, level=L_INFO):
         super().__init__(clock, level)
         self.mqtt_client = mqtt_client
+        self._reactor_id = reactor_id
 
     def _record_log_message(self, message):
-        self.mqtt_client.publish(MqttLogger.TOPIC_LOG, message)
+        mqtt_msg = json.dumps({
+            'reactor_id': self._reactor_id,
+            'log': message,
+        })
+        self.mqtt_client.publish(MqttLogger.TOPIC_LOG, mqtt_msg)
 
 
 class ConsoleLogger(Logger): 

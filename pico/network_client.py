@@ -16,7 +16,7 @@ class MqttClient:
         self._wifi = wifi_client
         self._config = config
         self._mqtt_client = MQTTClient(
-            client_id=self._config['mqtt_client_id'],
+            client_id=str(self._config['mqtt_client_id']),
             server=self._config['mqtt_host'],
             user=self._config['mqtt_uname'],
             password=self._config['mqtt_pwd'],
@@ -33,10 +33,15 @@ class MqttClient:
     def add_subscriber(self, topic, callback): 
         if topic not in self._subscribers.keys():
             self._subscribers[topic] = []
+            if self._mqtt_connected:
+                self._mqtt_client.subscribe(topic)
 
         self._subscribers[topic].append(callback)
 
     def _process_message(self, topic, msg):
+        topic = topic.decode('utf-8')
+        msg = msg.decode('utf-8')
+        print('Mqtt Client: received message', topic, msg)
         if topic in self._subscribers.keys():
             for callback in self._subscribers[topic]:
                 callback(msg)
@@ -47,6 +52,8 @@ class MqttClient:
             print("Mqtt Client: Connecting to broker ...")
             self._mqtt_client.connect()
             self._mqtt_connected = True
+            for topic in self._subscribers.keys():
+                self._mqtt_client.subscribe(topic)
             print("Mqtt Client: Connecting to broker ... Done")
 
         else:

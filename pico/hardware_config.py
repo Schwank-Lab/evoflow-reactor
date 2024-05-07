@@ -2,6 +2,8 @@ import json
 
 SYRINGE_ML_PER_MM = 30/78
 HAHRDWARE_CONFIG_FILE = 'configs/hardware_config.json'
+EXPERIMENT_CONFIG_FILE = 'configs/experiment_config.json'
+
 
 class HardwareConfig: 
 
@@ -27,7 +29,7 @@ class HardwareConfig:
         intercept, slope = self._config['lagoon_temp']['intercept'], self._config['lagoon_temp']['slope']
         return slope * measurement + intercept
      
-    
+
 def default_config() -> HardwareConfig:
     cfg =  {
         'incubator_od': {'intercept': -14.706894907315895, 'slope': 0.00024892679660541},
@@ -43,6 +45,8 @@ def default_config() -> HardwareConfig:
     } 
     return HardwareConfig(cfg)
 
-def load_hardware_config(file = HAHRDWARE_CONFIG_FILE) -> dict: 
+def load_hardware_config(file = HAHRDWARE_CONFIG_FILE) -> HardwareConfig: 
     with open(file, 'r') as f: 
-        return json.load(f)
+        return HardwareConfig(json.load(f))
+    
+

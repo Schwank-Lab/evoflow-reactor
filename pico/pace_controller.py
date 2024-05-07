@@ -107,10 +107,19 @@ class PaceController():
     PRIORITY_BACT_STIRRER = 9
     PRIORITY_LAGOON_STIRRER = 6
 
-    def __init__(self, hardware, hardware_config: HardwareConfig, experiment_config, clock, thread, logger=None):
+    def __init__(self, clock, thread, logger=None):
         global _logger 
         _logger = logger if logger else ConsoleLogger(clock)
         self._thread = thread
+       
+        self._task_queue = TaskQueue(clock)
+        self._is_running = False
+        self._is_initialzed = False
+        self._state_time = None
+        self._clock = clock
+        self._current_state = None
+ 
+    def init(self, hardware, hardware_config, experiment_config):
         self._hardware = hardware
         self._inc_temp_ctl = TempController(hardware.temp_sensor_inc, 
                 hardware.heater_inc, target_temp=37) # TODO: move target temp to the experiment config
@@ -126,17 +135,12 @@ class PaceController():
         self._btn_left = hardware.button_left
         self._btn_right = hardware.button_right
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
+        self._is_initialzed = True
 
-        self._task_queue = TaskQueue(clock)
-        self._is_running = False
-        self._experiment_loaded = False
-        self._state_time = None
-        self._clock = clock
-        self._current_state = None
 
-    
     def start(self):
         assert not self._is_running
+        assert self._is_initialzed
         self._is_running = True 
         self._inc_temp_ctl.start(self._task_queue, priority=10)
         self._inc_stirrer_ctl.start(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
@@ -151,8 +155,10 @@ class PaceController():
         self._thread(self._run)
 
     def stop(self):
-        assert self._is_running
         self._is_running = False
+    
+    def is_running(self): 
+        return self._is_running
     
     def _run(self):
         while not self._task_queue.empty() and self._is_running:
@@ -171,8 +177,6 @@ class PaceController():
           hw.pump_incubator_to_waste.off()
           hw.pump_incubator_to_lagoon.off()
           hw.pump_lagoon_to_waste.off()
-
-          hw.stepper_arabinose_to_lagoon.stop()
     
     def _handle_buttons(self):
         btn_left = self._btn_left.value()
