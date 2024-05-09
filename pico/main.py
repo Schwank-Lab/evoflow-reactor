@@ -29,7 +29,7 @@ mqtt_client = MqttClient(wifi_client, network_config)
 
 clock = Clock()
 console_logger = ConsoleLogger(clock, level=logger.L_INFO)
-mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_INFO)
+mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_DEBUG)
 logger = CompositeLogger([console_logger, mqtt_logger])
 
 thread = lambda fn, *args: _thread.start_new_thread(fn, args)

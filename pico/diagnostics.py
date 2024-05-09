@@ -67,7 +67,10 @@ def test_stirrers():
         stirrer.off()
 
 def compute_stats(measurements):
+    measurements = [m for m in measurements if m is not None]
     N = len(measurements)
+    if N == 0:
+        return None, None
     mean = sum(measurements) / N
     std = math.sqrt(1/N * sum([(m-mean) ** 2 for m in measurements]))
     return mean, std

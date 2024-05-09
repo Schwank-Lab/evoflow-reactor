@@ -297,7 +297,7 @@ class TempController:
         else:
             self._heater.off()
 
-    def current_temp(self):
+    def current_temp(self) -> float:
         """ Current temp (in C), refreshed periocially. """ 
         return self._current_temp
 
