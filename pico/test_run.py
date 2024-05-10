@@ -1,5 +1,4 @@
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
 import json 
 import threading
@@ -9,9 +8,8 @@ import io
 
 import hardware_config
 import pace_controller
-from pace_controller import PaceController, s, ms
-from logger import FileLogger
-from pace_server import PaceServer
+from pace_controller import PaceController, s_to_ms, ms
+from logger import FileLogger, ConsoleLogger, L_DEBUG
 import time 
 
 class FakePin:
@@ -81,11 +79,11 @@ class FakeStirrer:
 class Clock:
 
     def __init__(self):
-        self._start = s(time.time()) 
+        self._start = s_to_ms(time.time()) 
     
     def time_ms(self):
         """ Time in milliseconds since start"""
-        return s(time.time()) - self._start
+        return s_to_ms(time.time()) - self._start
     
     def time_since_epoch(self):
         """ Time in seconds since epoch"""
@@ -93,7 +91,7 @@ class Clock:
     
     def set_start_time(self, start):
         """ Set start time in seconds since epoch"""
-        self._start = s(start)
+        self._start = s_to_ms(start)
 
     def sleep_ms(self, ms):
         time.sleep(ms/1000)
@@ -126,22 +124,17 @@ class FakeHardware:
 
 if __name__ == '__main__':
     hardware = FakeHardware()
-    config = {
+    experiment_config = {
+            'experiment_id': 'test_experiment',
             'target_od': 0.8, 
             'lagoon_flow_rate': 3, # v/h
             'lagoon_volume': 7, # ml
-            'record_state_interval_ms': 1000,
-            'store_state_interval_ms': 3000,
             'arabinose_stock_concentration': 2000, # mM
             'arabinose_target_concentration': 40, # mM
             }
     thread = lambda fn, *args: threading.Thread(target=fn, args=args).start()
-    pace_controller._logger = FileLogger.create_instance(Clock())
-    controller = PaceController(hardware, hardware_config.default_config(), config, Clock(), thread)
+    clk = Clock()
+    controller = PaceController(clk, thread, ConsoleLogger(clk, level=L_DEBUG))
+    controller.init(hardware, hardware_config.default_config(), experiment_config)
 
-    controller._new_experiment()
     controller.start()
-    # pace_server = PaceServer(controller)
-
-    # httpd = HTTPServer(('localhost', 8000), WebServer)
-    # httpd.serve_forever()

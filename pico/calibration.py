@@ -148,7 +148,7 @@ def calibrate_pump(target_vol):
 
     
 # stop_all()
-calibrate_temp(30)
+calibrate_temp(36)
 # calibrate_od(num_probes=6)
 # calibrate_lagoon_stirrer()
 # calibrate_pump(50)
