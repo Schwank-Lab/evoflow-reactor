@@ -18,15 +18,20 @@ class MqttStateRecorder:
 
 class FileStateRecorder: 
 
-    def __init__(self): 
-        self.state_log = "logs/state_log.csv"
+    def __init__(self, experiment_id): 
+        self.state_log = f"logs/state_log_{experiment_id}.csv"
         # Write headers to the state_log file
-        # TODO: don't re-create state log every time.
-        with open(self.state_log, 'w') as f:
-            # f.write(f"# Experiment started at: {self._clock.localtime()}\n")
-            f.write('timestamp,inc_od,inc_temp,inc_dilution,lagoon_temp,lagoon_flow_rate\n')
+        try:
+            with open(self.state_log, 'r') as f:
+                pass
+        except Exception:
+            with open(self.state_log, 'w') as f:
+                f.write('timestamp,inc_od,inc_temp,inc_dilution,lagoon_temp,lagoon_flow_rate\n')
 
-    def _store_state(self, state):
+            
+    def record(self, state):
+        if state is None: 
+            return 
         with open(self.state_log, 'a') as f:
             f.write("{},{},{},{},{},{}\n".format(
                 state['timestamp'], state['inc_od'], state['inc_temp'], state['inc_dilution'], 

@@ -6,27 +6,31 @@ _logger = None
 def ms(milliseconds):
     return int(milliseconds)
 
-def s(seconds):
+def s_to_ms(seconds):
     return ms(seconds * 1000)
 
-def m(mins): 
-    return s(60*mins)
+def m_to_ms(mins): 
+    return s_to_ms(60*mins)
 
-def h(hours): 
-    return m(60*hours)
+def h_to_ms(hours): 
+    return m_to_ms(60*hours)
 
 class Task:
 
-    def __init__(self, fn, args: list, interval=-1):
+    def __init__(self, fn, args: list, interval_ms=-1):
+        """
+        Params: 
+            interval_ms: if specified, task will be executed repeatedly at the given interval. 
+        """
         self.fn = fn
         self.args = args
-        self.interval = interval
-        self.repeat = interval > 0
+        self.interval = interval_ms
+        self.repeat = interval_ms > 0
 
     def run(self):
         self.fn(*self.args)
 
-class PriorityQueue:
+class PriorityQueue:    
     def __init__(self):
         self.queue = []
 
@@ -61,16 +65,21 @@ class TaskQueue:
         self._clock = clock
         self._task_queue = PriorityQueue() 
 
-    def _put_task(self, t, priority, task):
-        self._task_queue.put((t, priority, task))
+    def _put_task(self, t_ms, priority, task):
+        """Adds task to the queue.
+        
+        Params: 
+            t_ms (int): time at which the task has to be executed. """
+        self._task_queue.put((t_ms, priority, task))
     
-    def put(self, delay, task, *args,  priority=1):
+    def put(self, delay_ms, task, *args,  priority=1):
         """ Schedule a task to be executed at after a given delay. 
         
         Args:
+            dalay: time in milliseconds after which the task should be executed (from the current timepoint)
             priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
         """
-        self._put_task(self._clock.time_ms()+delay, priority, Task(task, args))
+        self._put_task(self._clock.time_ms()+delay_ms, priority, Task(task, args))
 
     def repeat(self, interval, task, *args, priority=1):
         """ Schedule a task to be executed at a given interval. 
@@ -78,16 +87,16 @@ class TaskQueue:
         Args:
             priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
         """
-        repeat_task = Task(task, args, interval=interval)
+        repeat_task = Task(task, args, interval_ms=interval)
         self._put_task(self._clock.time_ms(), priority, repeat_task)
 
     def cycle(self):
         """ Retrieve next task from the priority queue and execute it. """
         t = self._clock.time_ms()
-        t_next, priority, task = self._task_queue.get()
-        if t_next > t: 
-            self._clock.sleep_ms(t_next - t)
-        _logger.debug(f"TaskQueue#cycle {t_next/1000:.3f}")
+        t_next_ms, priority, task = self._task_queue.get()
+        if t_next_ms > t: 
+            self._clock.sleep_ms(t_next_ms - t)
+        _logger.debug(f"TaskQueue#cycle {t_next_ms/1000:.3f}")
         task.run()
         if task.repeat:
             t = self._clock.time_ms()
@@ -102,8 +111,8 @@ class TaskQueue:
 
 class PaceController():
 
-    CHECK_STEPPER_BUTTONS_INTERVAL = s(1)
-    RECORD_STATE_EVERY = s(1)
+    CHECK_STEPPER_BUTTONS_INTERVAL = s_to_ms(1)
+    RECORD_STATE_EVERY = s_to_ms(1)
     PRIORITY_BACT_STIRRER = 9
     PRIORITY_LAGOON_STIRRER = 6
 
@@ -120,6 +129,7 @@ class PaceController():
         self._current_state = None
  
     def init(self, hardware, hardware_config, experiment_config):
+        self._experiment_id = experiment_config['experiment_id']
         self._hardware = hardware
         self._inc_temp_ctl = TempController(hardware.temp_sensor_inc, 
                 hardware.heater_inc, target_temp=37) # TODO: move target temp to the experiment config
@@ -194,17 +204,20 @@ class PaceController():
             
     def _handle_button_left(self):
         """ Pressing left button will drain ara from the syringe. """
+        _logger.info('PaceController: resetting arabinose syringe forward.')
         while self._btn_left.value() == 0:
             self._ara_stepper.step_forward()
         
     def _handle_button_right(self): 
         """ Pressing right button will re-fill the syringe. """
+        _logger.info('PaceController: resetting arabinose syringe backward.')
         while self._btn_right.value() == 0: 
             self._ara_stepper.step_reverse()
 
     def _record_state(self):
         _logger.debug('PaceController#record_state')
         state = {
+            'experiment_id': self._experiment_id, 
             'timestamp': self._clock.time_since_epoch(),
             'inc_od': self._inc_od_ctl.current_od(), 
             'inc_temp': self._inc_temp_ctl.current_temp(),
@@ -220,11 +233,11 @@ class PaceController():
 
 class ODController():
     
-    OD_UPDATE_INTERVAL = s(3)
+    OD_UPDATE_INTERVAL = s_to_ms(3)
     TIME_LED_ON = ms(100)
     TIME_OD_DELAY = ms(50)
-    TIME_MEDIUM_PUMP_ON = s(2)
-    TIME_WASTE_PUMP_ON = s(2.2)
+    TIME_MEDIUM_PUMP_ON = s_to_ms(2)
+    TIME_WASTE_PUMP_ON = s_to_ms(2.2)
     UPPER_OD_THRESHOLD = 1.4
 
     def __init__(self, hardware, config):
@@ -277,7 +290,7 @@ class ODController():
     
 class TempController:
 
-    TEMP_UPDATE_INTERVAL = s(1)
+    TEMP_UPDATE_INTERVAL = s_to_ms(1)
     
     def __init__(self, temp_sensor, heater, target_temp):
         self._temp_sensor = temp_sensor
@@ -304,9 +317,9 @@ class TempController:
 
 class StirrerController:
 
-    STIRRER_RESTART_INTERVAL = m(5)
+    STIRRER_RESTART_INTERVAL = m_to_ms(5)
     NUM_STEPS = 10
-    STEP_DELAY = s(1)
+    STEP_DELAY = s_to_ms(1)
     
     def __init__(self, stirrer, top_speed_frac):
         self._stirrer = stirrer
@@ -335,30 +348,39 @@ class LagoonFlowController():
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
         self._flow_rate = experiment_config['lagoon_flow_rate']
         self._lagoon_volume = experiment_config['lagoon_volume']
-        self._ara_conc = experiment_config['arabinose_target_concentration'] / experiment_config['arabinose_stock_concentration']
+        if experiment_config['arabinose_target_concentration'] > 0: 
+            self._ara_conc = experiment_config['arabinose_target_concentration'] / experiment_config['arabinose_stock_concentration']
+            if self._ara_conc >= 0.2: 
+                raise ValueError(f'Arabinose concentration of {self._ara_conc:.2f} is too high, consider increasing stock molarity.')
+            ara_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * self._ara_conc
+            ara_steps_per_hour = ara_flow_ml_per_hour / hardware_config.induction_ml_per_step
+            self._ara_step_interval = h_to_ms(1) // ara_steps_per_hour 
+            _logger.info(f'LagoonFlowController: ara step every {(self._ara_step_interval / 1000):.1f}s')
+        else:
+            self._ara_conc = 0
+
+       
         
         # convert flow rate from lv/h to ml/h
         bact_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * (1 - self._ara_conc)
         # calculate how many bursts we have to do per hour to achieve the flow rate
         bact_bursts_per_hour = bact_flow_ml_per_hour / hardware_config.pump_incubator_to_lagoon_burst_vol_ml
         # calculate how often to we have to do bursts
-        self._bact_burst_interval = h(1) // bact_bursts_per_hour
-        self._bact_burst_duration = hardware_config.pump_incubator_to_lagoon_burst_duration_s
-        self._waste_burst_duration = hardware_config.pump_lagoon_to_waste_burst_duration_s
-        _logger.info('LagoonFlowController: bacteria pump burst every ', self._bact_burst_interval // 1000, 's')
+        self._bact_burst_interval = h_to_ms(1) // bact_bursts_per_hour
+        self._bact_burst_duration = s_to_ms(hardware_config.pump_incubator_to_lagoon_burst_duration_s)
+        self._waste_burst_duration = s_to_ms(hardware_config.pump_lagoon_to_waste_burst_duration_s)
+        _logger.info(f'LagoonFlowController: bacteria pump burst for {(self._bact_burst_duration / 1000):.1f}s every {(self._bact_burst_interval / 1000):.1f}s')
         if self._bact_burst_interval < self._bact_burst_duration:
             raise ValueError('Bacteria pump burst interval too short, smaller than burst duration')
         
-        ara_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * self._ara_conc
-        ara_steps_per_hour = ara_flow_ml_per_hour / hardware_config.induction_ml_per_step
-        self._ara_step_interval = h(1) // ara_steps_per_hour 
-        _logger.info('LagoonFlowController: ara step every', self._ara_step_interval // 1000, 's')
+       
 
     def start(self, task_queue, priority):
         task_queue.repeat(self._bact_burst_interval, 
                           self._maintain_bact_flow, task_queue, priority, priority=priority)
-        task_queue.repeat(self._ara_step_interval, 
-                          self._maintain_ara_flow, task_queue, priority, priority=priority+0.5)
+        if self._ara_conc > 0: 
+            task_queue.repeat(self._ara_step_interval, 
+                            self._maintain_ara_flow, task_queue, priority, priority=priority+0.5)
         
     def _maintain_bact_flow(self, task_queue: TaskQueue, priority): 
         self._bacteria_pump.on()
