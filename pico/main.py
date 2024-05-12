@@ -17,8 +17,6 @@ import json
 Create and start controller 
 """
 
-STATE_RECORD_EVERY_S = 20
-
 with open('configs/network_config.json') as f: 
     network_config = json.load(f)
 with open('state/reactor_state.json') as f:
@@ -46,14 +44,17 @@ hardware = Hardware(reactor_config)
 controller.init(hardware, reactor_config, experiment_config)
 
 if reactor_state['status'] == 'running':
+    logger.info('[MAIN] Starting experiment...')
     controller.start()
+else:
+    logger.info('[MAIN] Experiment is idle, reactor not started.')
 
 # wifi_client.request_wifi_connection()
 # time.sleep(1)
 # mqtt_client.request_mqtt_connection()
 # time.sleep(1)
 
-state_recorder = FileStateRecorder(experiment_id)
+state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)
 commads_dispatcher = CommandsDispatcher(reactor_id, controller, logger)
 # mqtt_client.add_subscriber('commands', commads_dispatcher._process_commands) # TODO: refactor
 
@@ -61,10 +62,11 @@ try:
     while True:
         if controller.is_running():
             reactor_state = controller.current_state()
-            state_recorder.record(reactor_state) # TODO: refactor.
-            logger.info(json.dumps(reactor_state))
+            state_recorder.record(reactor_state)
+            console_logger.info(json.dumps(reactor_state))
+            
         #mqtt_client.receive()
-        time.sleep(STATE_RECORD_EVERY_S)
+        time.sleep(1)
 
 except KeyboardInterrupt:
     print('Exception occurred')
