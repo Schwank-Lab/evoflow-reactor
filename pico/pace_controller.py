@@ -15,6 +15,14 @@ def m_to_ms(mins):
 def h_to_ms(hours): 
     return m_to_ms(60*hours)
 
+def median(arr): 
+    sorted_arr = sorted(arr)
+    l = len(arr)
+    if l % 2 == 0: 
+        return (sorted_arr[l//2] + sorted_arr[l//2 - 1]) / 2
+    else:
+        return sorted_arr[l//2]
+
 class Task:
 
     def __init__(self, fn, args: list, interval_ms=-1):
@@ -238,15 +246,16 @@ class ODController():
     TIME_OD_DELAY = ms(50)
     TIME_MEDIUM_PUMP_ON = s_to_ms(2)
     TIME_WASTE_PUMP_ON = s_to_ms(2.2)
-    UPPER_OD_THRESHOLD = 1.4
 
-    def __init__(self, hardware, config):
+    def __init__(self, hardware, experiment_config, filter_window_size=5):
         self._led = hardware.inc_led
         self._od_sensor = hardware.inc_od_sensor
         self._medium_pump = hardware.pump_medium_to_incubator
         self._waste_pump = hardware.pump_incubator_to_waste
-        self.load_config(config)
+        self._target_od = experiment_config['target_od']
+        self._last_ods = [None for _ in range(filter_window_size)]
         self._current_od = None 
+        self._measurement_counter = 0 
         self._total_dilution = 0
 
     def start(self, task_queue: TaskQueue, priority):
@@ -263,18 +272,20 @@ class ODController():
 
     def _read_od(self):
         od = self._od_sensor.read_od()
-        self._current_od = od
-        _logger.debug('ODController: measured od', od)
-        if od > ODController.UPPER_OD_THRESHOLD:
-            _logger.debug('ODController: OD too high, not pumping')
-        elif od > self._target_od:
+        self._last_ods[self._measurement_counter % len(self._last_ods)] = od
+        self._measurement_counter += 1
+        if self._measurement_counter < len(self._last_ods):
+            # Not enough measurements to decide whether to dilute or not 
+            return
+        
+        self._current_od = median(self._last_ods)
+        _logger.debug(f'ODController: measured OD = {od:.2f}, filtered OD = {self._current_od:.2f}')
+        
+        if od > self._target_od:
             _logger.debug('ODController pumps on')
             self._total_dilution += 1
             self._medium_pump.on()
             self._waste_pump.on()
-
-    def load_config(self, config):
-        self._target_od = config['target_od']
 
     def current_od(self):
         """ Current incubator OD, refreshed periocially. """ 
