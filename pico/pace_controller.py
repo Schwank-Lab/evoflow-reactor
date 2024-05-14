@@ -247,13 +247,14 @@ class ODController():
     TIME_MEDIUM_PUMP_ON = s_to_ms(2)
     TIME_WASTE_PUMP_ON = s_to_ms(2.2)
 
-    def __init__(self, hardware, experiment_config, filter_window_size=3):
+    def __init__(self, hardware, experiment_config, filter_window_size=5, filter_deviation_th=0.3):
         self._led = hardware.inc_led
         self._od_sensor = hardware.inc_od_sensor
         self._medium_pump = hardware.pump_medium_to_incubator
         self._waste_pump = hardware.pump_incubator_to_waste
         self._target_od = experiment_config['target_od']
         self._last_ods = [None for _ in range(filter_window_size)]
+        self._filter_deviation_th = filter_deviation_th
         self._current_od = None 
         self._measurement_counter = 0 
         self._total_dilution = 0
@@ -278,10 +279,15 @@ class ODController():
             # Not enough measurements to decide whether to dilute or not 
             return
         
-        self._current_od = median(self._last_ods)
+        median_od = median(self._last_ods)
+        if abs(od - median_od) < self._filter_deviation_th:
+            self._current_od = od
+        else: 
+            _logger.info(f'ODController: measured OD = {od:.2f} is an outlier, median OD = {od:.2f}')
+        
         _logger.debug(f'ODController: measured OD = {od:.2f}, filtered OD = {self._current_od:.2f}')
         
-        if od > self._target_od:
+        if self._current_od > self._target_od:
             _logger.debug('ODController pumps on')
             self._total_dilution += 1
             self._medium_pump.on()
