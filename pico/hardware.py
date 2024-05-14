@@ -101,20 +101,22 @@ class Pump:
     MODE_PWM = 0
     MODE_PIN = 1
      
-    # TODO: integrate the speed somehow
-    def __init__(self, pin, mode=0):
+    def __init__(self, pin, mode=0, speed=1.0):
         self._mode = mode
         if mode == Pump.MODE_PIN:
+            if speed != 1.0: 
+                raise ValueError('Cannot set speed for pump in PIN mode.')
             self._pin = pin
         elif mode == Pump.MODE_PWM:
             self._motor = PWM(pin) ## use PWM to set speed of stirrer
             self._motor.freq(1000) ## test a few, to see which frequency works best with fan. 500hz works on Duet2 boards. 
+            self._speed = speed
         else:
             raise ValueError('Uknown pump mode', mode)
         
     def on(self):
         if self._mode == Pump.MODE_PWM:
-            self.set_speed(speed_frac=1.0)
+            self.set_speed(speed_frac=self._speed)
         else:
             self._pin.value(1)
     
@@ -170,9 +172,9 @@ class Hardware:
         self.heater_lagoon = Pin(8, Pin.OUT, value=0)
         self.stirrer_lagoon = Stirrer(Pin(20, Pin.OUT))
 
-        self.pump_medium_to_incubator = Pump(Pin(7, Pin.OUT, value=0))
+        self.pump_medium_to_incubator = Pump(Pin(7, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
         self.pump_incubator_to_waste = Pump(Pin(6, Pin.OUT, value=0), mode=Pump.MODE_PIN)
-        self.pump_incubator_to_lagoon = Pump(Pin(26, Pin.OUT, value=0))
+        self.pump_incubator_to_lagoon = Pump(Pin(26, Pin.OUT, value=0), speed=config.pump_incubator_to_lagoon_speed_frac)
         self.pump_lagoon_to_waste = Pump(Pin(22, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 
 

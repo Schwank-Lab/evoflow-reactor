@@ -11,6 +11,8 @@ class HardwareConfig:
         self._config = config
         self.incubator_stirrer_top_speed_frac = config['incubator_stirrer_top_speed_frac']
         self.lagoon_stirrer_top_speed_frac = config['lagoon_stirrer_top_speed_frac']
+        self.pump_medium_to_incubator_speed_frac = config['pumps_speed_frac']
+        self.pump_incubator_to_lagoon_speed_frac = 1.0 # TODO: recalibrate config['pumps_speed_frac']
         self.pump_incubator_to_lagoon_burst_vol_ml = config['pump_incubator_to_lagoon_burst_vol_ml']
         self.pump_incubator_to_lagoon_burst_duration_s = config['pump_incubator_to_lagoon_burst_duration_s']
         self.pump_lagoon_to_waste_burst_duration_s = config['pump_lagoon_to_waste_burst_duration_s']
