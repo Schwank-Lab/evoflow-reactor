@@ -92,7 +92,8 @@ class MqttLogger(Logger):
             'reactor_id': self._reactor_id,
             'log': message,
         })
-        self.mqtt_client.publish(MqttLogger.TOPIC_LOG, mqtt_msg)
+        # This is very bad because it will block the reactor thread.
+        # self.mqtt_client.publish(MqttLogger.TOPIC_LOG, mqtt_msg)
 
 
 class ConsoleLogger(Logger): 

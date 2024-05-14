@@ -2,18 +2,26 @@ import json
 
 class MqttStateRecorder:
     
-    TOPIC_STATE = 'experiment_monitor'
+    TOPIC_STATE = 'status/experiment'
 
-    def __init__(self, reactor_id, mqtt_client):
+    def __init__(self, reactor_id, mqtt_client, logger):
         self._mqtt_client = mqtt_client
         self._reactor_id = reactor_id
+        self._logger = logger
 
     def record(self, state): 
-        # TODO: try to reconnect if not connected 
+        """ Publish reactor state to the MQTT broker. 
+
+        Note: this method is blocking and should not be called on the same thread as the controller.
+        """
         msg = state.copy()
         msg['reactor_id'] = self._reactor_id
         msg= json.dumps(msg)
-        self._mqtt_client.publish(MqttStateRecorder.TOPIC_STATE, msg) 
+        try: 
+            self._mqtt_client.publish(MqttStateRecorder.TOPIC_STATE, msg) 
+        except OSError as e: 
+            self._logger.info('MqttStateRecorder: failed to publish state to MQTT broker.', e)
+            self._mqtt_client.restore_connection()
 
 
 class FileStateRecorder: 
@@ -41,7 +49,7 @@ class FileStateRecorder:
         self.t_last_record = self._clock.time_since_epoch()
         with open(self.state_log, 'a') as f:
             f.write("{},{},{},{},{},{}\n".format(
-                state['timestamp'], state['inc_od'], state['inc_temp'], state['inc_dilution'], 
+                state['timestamp'], state['inc_od'], state['inc_temp'], state['inc_tot_dil'], 
                 state['lagoon_temp'], state['lagoon_flow_rate']))
     
 

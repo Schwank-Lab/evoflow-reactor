@@ -28,12 +28,14 @@ mqtt_client = MqttClient(wifi_client, network_config)
 
 clock = Clock()
 console_logger = ConsoleLogger(clock, level=logger.L_INFO)
-# mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_DEBUG)
+# TODO: fix mqtt logger before re-enabling it.
+# mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_INFO) 
 file_logger = FileLogger(clock)
-logger = CompositeLogger([console_logger, file_logger])
+local_logger = CompositeLogger([console_logger, file_logger])
 
 thread = lambda fn, *args: _thread.start_new_thread(fn, args)
-controller = PaceController(Clock(), thread, logger=logger)
+controller = PaceController(Clock(), thread, logger=local_logger)
+
 
 with open('configs/experiment_config.json') as f:
     experiment_config = json.load(f)
@@ -44,19 +46,18 @@ hardware = Hardware(reactor_config)
 controller.init(hardware, reactor_config, experiment_config)
 
 if reactor_state['status'] == 'running':
-    logger.info('[MAIN] Starting experiment...')
+    local_logger.info('[MAIN] Starting experiment...')
     controller.start()
 else:
-    logger.info('[MAIN] Experiment is idle, reactor not started.')
+    local_logger.info('[MAIN] Experiment is idle, reactor not started.')
 
-# wifi_client.request_wifi_connection()
-# time.sleep(1)
-# mqtt_client.request_mqtt_connection()
-# time.sleep(1)
+wifi_client.request_wifi_connection()
+mqtt_client.request_mqtt_connection()
 
-state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)
-commads_dispatcher = CommandsDispatcher(reactor_id, controller, logger)
-# mqtt_client.add_subscriber('commands', commads_dispatcher._process_commands) # TODO: refactor
+# state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)
+state_recorder = MqttStateRecorder(reactor_id, mqtt_client, local_logger)
+commads_dispatcher = CommandsDispatcher(reactor_id, controller, local_logger)
+mqtt_client.add_subscriber('commands', commads_dispatcher._process_commands) # TODO: refactor
 
 try: 
     while True:
@@ -65,14 +66,16 @@ try:
             state_recorder.record(reactor_state)
             console_logger.info(json.dumps(reactor_state))
             
-        #mqtt_client.receive()
+        mqtt_client.receive()
         time.sleep(1)
 
 except KeyboardInterrupt:
-    print('Exception occurred')
-    # mqtt_client._mqtt_client.disconnect() # TODO: refactor.
+    print('Aborting the run...')
+except Exception as e:
+    local_logger.critical('[MAIN] unhandled exception', e)
 finally: 
     controller.stop()
+    mqtt_client._mqtt_client.disconnect() # TODO: refactor.
 
 
 

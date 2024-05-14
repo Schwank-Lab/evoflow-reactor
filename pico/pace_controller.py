@@ -229,7 +229,7 @@ class PaceController():
             'timestamp': self._clock.time_since_epoch(),
             'inc_od': self._inc_od_ctl.current_od(), 
             'inc_temp': self._inc_temp_ctl.current_temp(),
-            'inc_dilution': self._inc_od_ctl.total_dilution(),
+            'inc_tot_dil': self._inc_od_ctl.total_dilution(),
             'lagoon_temp': self._lagoon_temp_ctl.current_temp(),
             'lagoon_flow_rate': self._lagoon_flow_ctl.flow_rate(),
         }
@@ -247,7 +247,7 @@ class ODController():
     TIME_MEDIUM_PUMP_ON = s_to_ms(2)
     TIME_WASTE_PUMP_ON = s_to_ms(2.2)
 
-    def __init__(self, hardware, experiment_config, filter_window_size=5):
+    def __init__(self, hardware, experiment_config, filter_window_size=3):
         self._led = hardware.inc_led
         self._od_sensor = hardware.inc_od_sensor
         self._medium_pump = hardware.pump_medium_to_incubator
