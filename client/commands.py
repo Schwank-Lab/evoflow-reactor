@@ -1,6 +1,8 @@
 import paho.mqtt.client as mqtt
 import json
 import sys
+import argparse
+import os
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -8,9 +10,36 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"Connection failed with code {rc}")
 
-# Extract command line arguments
-reactor_id = sys.argv[1]
-command = sys.argv[2]
+def load_experiment_config(config_path):
+    with open(config_path, 'r') as file:
+        return json.load(file)
+
+def create_payload(args):
+    payload = {
+        "reactor_id": args.reactor_id,
+        "command": args.command
+    }
+    if args.experiment_id:
+        payload["experiment_id"] = args.experiment_id
+    if args.config:
+        payload["experiment_config"] = load_experiment_config(args.config)
+    return payload
+
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Send commands to the experiments via MQTT.')
+parser.add_argument('reactor_id', type=str, help='ID of the reactor')
+parser.add_argument('command', type=str, choices=['start', 'stop', 'pause', 'new_experiment', 'update_experiment_config'],
+                    help='Command to send to the reactor')
+parser.add_argument('--experiment_id', type=str, help='ID of the experiment (required for new_experiment and update_experiment_config)')
+parser.add_argument('--config', type=str, help='Path to the experiment configuration file (required for new_experiment and update_experiment_config)')
+
+# Parse arguments
+args = parser.parse_args()
+
+# Validate arguments for specific commands
+if args.command in ['new_experiment', 'update_experiment_config']:
+    if not args.experiment_id or not args.config:
+        parser.error("experiment_id and config are required for new_experiment and update_experiment_config commands")
 
 # Create the MQTT client
 client = mqtt.Client()
@@ -19,7 +48,7 @@ client = mqtt.Client()
 client.on_connect = on_connect
 
 # Connect to the MQTT broker
-broker_address = "192.168.31.10"  # Replace with your MQTT broker address
+broker_address = "10.66.4.7"  # Replace with your MQTT broker address
 port = 1883  # Default MQTT port
 client.connect(broker_address, port, 60)
 
@@ -27,10 +56,11 @@ client.connect(broker_address, port, 60)
 client.loop_start()
 
 # Prepare the payload
-payload = json.dumps({"reactor_id": int(reactor_id), "command": command})
+payload = create_payload(args)
+payload_json = json.dumps(payload)
 
 # Publish the message
-client.publish("commands", payload)
+client.publish("commands", payload_json)
 
 # Stop the loop
 client.loop_stop()
