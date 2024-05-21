@@ -375,25 +375,31 @@ class LagoonFlowController():
             _logger.info(f'LagoonFlowController: ara step every {(self._ara_step_interval / 1000):.1f}s')
         else:
             self._ara_conc = 0
+            _logger.info('LagoonFlowController: no arabinose induction.')
 
        
         
-        # convert flow rate from lv/h to ml/h
-        bact_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * (1 - self._ara_conc)
-        # calculate how many bursts we have to do per hour to achieve the flow rate
-        bact_bursts_per_hour = bact_flow_ml_per_hour / hardware_config.pump_incubator_to_lagoon_burst_vol_ml
-        # calculate how often to we have to do bursts
-        self._bact_burst_interval = h_to_ms(1) // bact_bursts_per_hour
-        self._bact_burst_duration = s_to_ms(hardware_config.pump_incubator_to_lagoon_burst_duration_s)
-        self._waste_burst_duration = s_to_ms(hardware_config.pump_lagoon_to_waste_burst_duration_s)
-        _logger.info(f'LagoonFlowController: bacteria pump burst for {(self._bact_burst_duration / 1000):.1f}s every {(self._bact_burst_interval / 1000):.1f}s')
-        if self._bact_burst_interval < self._bact_burst_duration:
-            raise ValueError('Bacteria pump burst interval too short, smaller than burst duration')
+        if self._flow_rate > 0:
+            # convert flow rate from lv/h to ml/h
+            bact_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * (1 - self._ara_conc)
+            # calculate how many bursts we have to do per hour to achieve the flow rate
+            bact_bursts_per_hour = bact_flow_ml_per_hour / hardware_config.pump_incubator_to_lagoon_burst_vol_ml
+            # calculate how often to we have to do bursts
+            self._bact_burst_interval = h_to_ms(1) // bact_bursts_per_hour
+            self._bact_burst_duration = s_to_ms(hardware_config.pump_incubator_to_lagoon_burst_duration_s)
+            self._waste_burst_duration = s_to_ms(hardware_config.pump_lagoon_to_waste_burst_duration_s)
+            _logger.info(f'LagoonFlowController: bacteria pump burst for {(self._bact_burst_duration / 1000):.1f}s every {(self._bact_burst_interval / 1000):.1f}s')
+            if self._bact_burst_interval < self._bact_burst_duration:
+                raise ValueError('Bacteria pump burst interval too short, smaller than burst duration')
+        else: 
+            self._bact_burst_interval = 0
+            _logger.info('LagoonFlowController: no bacteria flow.')
         
        
 
     def start(self, task_queue, priority):
-        task_queue.repeat(self._bact_burst_interval, 
+        if self._bact_burst_interval > 0: 
+            task_queue.repeat(self._bact_burst_interval, 
                           self._maintain_bact_flow, task_queue, priority, priority=priority)
         if self._ara_conc > 0: 
             task_queue.repeat(self._ara_step_interval, 
