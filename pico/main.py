@@ -23,10 +23,12 @@ with open('state/reactor_state.json') as f:
     reactor_state = json.load(f)
 
 reactor_id = network_config['mqtt_client_id']
+reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
+
 wifi_client = WiFiClient(network_config)
 mqtt_client = MqttClient(wifi_client, network_config)
 
-clock = Clock()
+clock = Clock(second_since_epoch_offset=reactor_config.seconds_since_epoch_offset)
 console_logger = ConsoleLogger(clock, level=logger.L_INFO)
 # TODO: fix mqtt logger before re-enabling it.
 # mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_INFO) 
@@ -34,14 +36,13 @@ file_logger = FileLogger(clock)
 local_logger = CompositeLogger([console_logger, file_logger])
 
 thread = lambda fn, *args: _thread.start_new_thread(fn, args)
-controller = PaceController(Clock(), thread, logger=local_logger)
+controller = PaceController(clock, thread, logger=local_logger)
 
 
 with open('configs/experiment_config.json') as f:
     experiment_config = json.load(f)
 
 experiment_id = experiment_config['experiment_id']
-reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
 hardware = Hardware(reactor_config)
 controller.init(hardware, reactor_config, experiment_config)
 
@@ -54,8 +55,8 @@ else:
 wifi_client.request_wifi_connection()
 mqtt_client.request_mqtt_connection()
 
-# state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)
-state_recorder = MqttStateRecorder(reactor_id, mqtt_client, local_logger)
+file_state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)
+mqtt_state_recorder = MqttStateRecorder(reactor_id, mqtt_client, local_logger)
 commads_dispatcher = CommandsDispatcher(reactor_id, controller, local_logger)
 mqtt_client.add_subscriber('commands', commads_dispatcher._process_commands) # TODO: refactor
 
@@ -63,7 +64,8 @@ try:
     while True:
         if controller.is_running():
             reactor_state = controller.current_state()
-            state_recorder.record(reactor_state)
+            file_state_recorder.record(reactor_state)
+            mqtt_state_recorder.record(reactor_state)
             console_logger.info(json.dumps(reactor_state))
             
         mqtt_client.receive()

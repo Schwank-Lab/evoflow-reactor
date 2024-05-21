@@ -117,10 +117,8 @@ def calibrate_od(num_probes=5):
             f.write(','.join(map(str, probe_measurements)))
             f.write('\n')
 
-    
 
-
-def calibrate_pump(target_vol): 
+def calibrate_pump_incubator_to_lagoon(target_vol): 
 
     burst_vol = hw_config.pump_incubator_to_lagoon_burst_vol_ml
     num_bursts = target_vol // burst_vol
@@ -139,6 +137,18 @@ def calibrate_pump(target_vol):
             time.sleep(burst_off_s)
     except KeyboardInterrupt:
         hw.pump_incubator_to_lagoon.off()
+
+
+def calibrate_clock(): 
+    clk = Clock() 
+    for i in range(3, 0, -1): 
+        print(f'Note current time in {i}...')
+        time.sleep(1) 
+
+    s = clk.time_since_epoch()
+    print(f'Note seconds_sinc_epoch is {s}')
+    with open('calibration/time_calibration.txt', 'w') as f: 
+        f.write(str(s))
         
 
 
@@ -148,7 +158,8 @@ def calibrate_pump(target_vol):
 
     
 # stop_all()
-calibrate_temp(36)
+# calibrate_temp(36)
 # calibrate_od(num_probes=6)
 # calibrate_lagoon_stirrer()
-# calibrate_pump(50)
+calibrate_pump_incubator_to_lagoon(target_vol=50)
+# calibrate_clock()
