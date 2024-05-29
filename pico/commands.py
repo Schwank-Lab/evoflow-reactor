@@ -38,7 +38,7 @@ class CommandsDispatcher:
             with open('state/reactor_state.json', 'w') as f:
                 json.dump({'status': 'idle'}, f)
             self._pace_controller.stop()
-        elif cmd == 'new_experiment' or cmd == 'update_experiment_config':
+        elif cmd == 'new_experiment' or cmd == 'update_experiment':
             self._logger.info('Command Dispatcher: udpating experiment config')
             msg['experiment_config']['experiment_id'] = int(msg['experiment_id'])
             self._logger.info(json.dumps(msg['experiment_config']))
@@ -52,7 +52,7 @@ class CommandsDispatcher:
                  json.dump(msg['reactor_config'], f)
             self._recreate_pace_controller()
         else:
-            self._logger.error('CommandDispatcher: unknown command', cmd)
+            self._logger.critical('CommandDispatcher: unknown command', cmd)
 
 
 
