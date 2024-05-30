@@ -56,14 +56,16 @@ class CommandsDispatcher:
             with open('configs/reactor_config.json', 'w') as f:
                  json.dump(msg['reactor_config'], f)
             self._recreate_pace_controller()
-        elif cmd == 'stepper_forward': 
+        elif cmd == 'stepper_forward':
+            vol_ml = msg['stepper_vol'] 
             self._stop_controller()
             time.sleep(2) # give thread some time to finish.
-            self._pace_controller.reset_stepper_forward()
+            self._pace_controller.reset_stepper_forward(vol_ml)
         elif cmd == 'stepper_reverse': 
+            vol_ml = msg['stepper_vol']
             self._stop_controller()
             time.sleep(2)
-            self._pace_controller.reset_stepper_reverse()
+            self._pace_controller.reset_stepper_reverse(vol_ml)
         elif cmd == 'stepper_stop':
             self._stop_controller()
             # controller has to be resarted manually.

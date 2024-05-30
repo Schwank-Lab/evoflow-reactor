@@ -25,18 +25,27 @@ def median(arr):
 
 class Task:
 
-    def __init__(self, fn, args: list, interval_ms=-1):
+    def __init__(self, fn, args: list, interval_ms=-1, n_repeats=-1):
         """
         Params: 
             interval_ms: if specified, task will be executed repeatedly at the given interval. 
+            n_repeats: number of times the task should be repeated. 
+                If -1, and interval_ms >= 0 the task will be repeated indefinitely.
+                if -1 and interval_ms is -1, task will be executed only once. 
         """
         self.fn = fn
         self.args = args
         self.interval = interval_ms
-        self.repeat = interval_ms > 0
+        self.n_repeats = n_repeats
+        assert n_repeats == -1 or interval_ms >= 0 
 
     def run(self):
         self.fn(*self.args)
+        if self.n_repeats > 0:
+            self.n_repeats -= 1
+
+    def repeat(self): 
+        return self.n_repeats > 0 or (self.n_repeats == -1 and self.interval >= 0)
 
 class PriorityQueue:    
     def __init__(self):
@@ -98,6 +107,15 @@ class TaskQueue:
         repeat_task = Task(task, args, interval_ms=interval)
         self._put_task(self._clock.time_ms(), priority, repeat_task)
 
+    def repeat_n(self, interval, n_repeats, task, *args, priority=1):
+        """ Schedule a task to be executed at a given interval for a given number of times. 
+        
+        Args:
+            priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
+        """
+        repeat_task = Task(task, args, interval_ms=interval, n_repeats=n_repeats)
+        self._put_task(self._clock.time_ms(), priority, repeat_task)
+
     def cycle(self):
         """ Retrieve next task from the priority queue and execute it. """
         t = self._clock.time_ms()
@@ -106,7 +124,7 @@ class TaskQueue:
             self._clock.sleep_ms(t_next_ms - t)
         _logger.debug(f"TaskQueue#cycle {t_next_ms/1000:.3f}")
         task.run()
-        if task.repeat:
+        if task.repeat():
             t = self._clock.time_ms()
             self._put_task(t+task.interval, priority, task)
 
@@ -132,6 +150,7 @@ class PaceController():
         self._task_queue = TaskQueue(clock)
         self._is_running = False
         self._is_initialzed = False
+        self._is_resetting_stepper = False
         self._state_time = None
         self._clock = clock
         self._current_state = None
@@ -150,6 +169,7 @@ class PaceController():
         self._lagoon_flow_ctl = LagoonFlowController(hardware, hardware_config, experiment_config) 
 
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
+        self._ara_stepper_vol_per_step = hardware_config.induction_ml_per_step
         self._is_initialzed = True
 
         # control buttons 
@@ -159,6 +179,7 @@ class PaceController():
 
     def start(self):
         assert not self._is_running
+        assert not self._is_resetting_stepper
         assert self._is_initialzed
         self._is_running = True 
         self._inc_temp_ctl.start(self._task_queue, priority=10)
@@ -173,23 +194,36 @@ class PaceController():
         
         self._thread(self._run)
 
-    def reset_stepper_forward(self): 
-        self._task_queue.repeat(0, self._ara_stepper.step_forward, priority=0)
+    def reset_stepper_forward(self, vol_ml): 
+        assert not self._is_running
+        n_repeats = int(vol_ml / self._ara_stepper_vol_per_step)
+        _logger.info(f'PaceController: resetting arabinose syringe forward {vol_ml}mL, {n_repeats} steps.')
+        self._task_queue.repeat_n(0, n_repeats, self._ara_stepper.step_forward, priority=0)
+        self._is_resetting_stepper = True
         self._thread(self._run)
 
-    def reset_stepper_backward(self): 
-        self._task_queue.repeat(0, self._ara_stepper.step_reverse, priority=0)
+    def reset_stepper_reverse(self, vol_ml): 
+        assert not self._is_running
+        n_repeats = int(vol_ml / self._ara_stepper_vol_per_step)
+        _logger.info(f'PaceController: resetting arabinose syringe backward {vol_ml}mL, {n_repeats} steps.')
+        self._task_queue.repeat_n(0, n_repeats, self._ara_stepper.step_reverse, priority=0)
+        self._is_resetting_stepper = True
         self._thread(self._run)
 
     def stop(self):
         self._is_running = False
+        self._is_resetting_stepper = False
     
     def is_running(self): 
         return self._is_running
     
+    def is_resetting_stepper(self): 
+        return self._is_resetting_stepper
+    
     def _run(self):
-        while not self._task_queue.empty() and self._is_running:
+        while not self._task_queue.empty() and (self ._is_running or self._is_resetting_stepper):
             self._task_queue.cycle()
+        _logger.info('PaceController: stopping the controller')
         self._task_queue.clear()
         self._stop_all_hardware()
 
