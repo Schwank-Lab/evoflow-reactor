@@ -1,5 +1,5 @@
 import network
-from umqtt.simple import MQTTClient
+from libs.umqtt.simple import MQTTClient
 from time import sleep
 import _thread
 from math import sin
@@ -45,7 +45,7 @@ class MqttClient:
         self._wifi = wifi_client
         self._config = config
         self._mqtt_client = MQTTClient(
-            client_id=str(self._config['mqtt_client_id']),
+            client_id=str(self._config['reactor_id']),
             server=self._config['mqtt_host'],
             user=self._config['mqtt_uname'],
             password=self._config['mqtt_pwd'],
