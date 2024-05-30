@@ -149,12 +149,13 @@ class PaceController():
         self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, hardware_config.lagoon_stirrer_top_speed_frac)
         self._lagoon_flow_ctl = LagoonFlowController(hardware, hardware_config, experiment_config) 
 
-        # control buttons 
-        self._btn_left = hardware.button_left
-        self._btn_right = hardware.button_right
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
         self._is_initialzed = True
 
+        # control buttons 
+        self._btn_left = hardware.button_left
+        self._btn_right = hardware.button_right
+        
 
     def start(self):
         assert not self._is_running
@@ -170,6 +171,14 @@ class PaceController():
         self._task_queue.repeat(PaceController.CHECK_STEPPER_BUTTONS_INTERVAL, 
                           self._handle_buttons, priority=3)
         
+        self._thread(self._run)
+
+    def reset_stepper_forward(self): 
+        self._task_queue.repeat(0, self._ara_stepper.step_forward, priority=0)
+        self._thread(self._run)
+
+    def reset_stepper_backward(self): 
+        self._task_queue.repeat(0, self._ara_stepper.step_reverse, priority=0)
         self._thread(self._run)
 
     def stop(self):

@@ -28,7 +28,8 @@ def create_payload(args):
 # Set up argument parser
 parser = argparse.ArgumentParser(description='Send commands to the experiments via MQTT.')
 parser.add_argument('reactor_id', type=str, help='ID of the reactor')
-parser.add_argument('command', type=str, choices=['start', 'stop', 'pause', 'new_experiment', 'update_experiment_config'],
+parser.add_argument('command', type=str, choices=['start', 'stop', 'pause', 'new_experiment', 'update_experiment_config', 
+                                                  'stepper_forward', 'stepper_reverse', 'stepper_stop'],
                     help='Command to send to the reactor')
 parser.add_argument('--experiment_id', type=str, help='ID of the experiment (required for new_experiment and update_experiment_config)')
 parser.add_argument('--config', type=str, help='Path to the experiment configuration file (required for new_experiment and update_experiment_config)')
