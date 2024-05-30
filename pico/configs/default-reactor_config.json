@@ -17,6 +17,6 @@
     "pump_incubator_to_lagoon_burst_vol_ml": 0.1740618000000002,
     "pump_incubator_to_lagoon_burst_duration_s": 0.5,
     "pump_lagoon_to_waste_burst_duration_s": 0.6,
-    "induction_ml_per_step": 0.001511259s,
+    "induction_ml_per_step": 0.001511259,
     "seconds_since_epoch_offset": 106411057
   }

@@ -3,5 +3,6 @@
     "lagoon_flow_rate": 0,
     "lagoon_volume": 7,
     "arabinose_stock_concentration": 2000,
-    "arabinose_target_concentration": 0
+    "arabinose_target_concentration": 0,
+    "experiment_id": -1
 }
