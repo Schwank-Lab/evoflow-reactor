@@ -1,9 +1,7 @@
 {
     "target_od": 0.5,
-    "lagoon_flow_rate": 1,
+    "lagoon_flow_rate": 0,
     "lagoon_volume": 7,
-    "record_state_interval_ms": 120000,
-    "store_state_interval_ms": 120000,
     "arabinose_stock_concentration": 2000,
-    "arabinose_target_concentration": 40
+    "arabinose_target_concentration": 0
 }
