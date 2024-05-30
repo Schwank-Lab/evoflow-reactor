@@ -1,10 +1,17 @@
 import json
 
 SYRINGE_ML_PER_MM = 30/78
+SHAFT_LEAD_MM = 2
+STEPS_PER_REVOLUTION = 2038 // 4
 HAHRDWARE_CONFIG_FILE = 'configs/hardware_config.json'
 EXPERIMENT_CONFIG_FILE = 'configs/experiment_config.json'
 
 
+def calculate_vol_per_step(steps_per_revolution, shaft_lead_mm, syringe_ml_per_mm):
+    """ Calculate the volume of liquid dispenced per *full rotation* of the stepper rotor."""
+    angle_per_step = 1 / steps_per_revolution # fraction of the full rotation per step 
+    return angle_per_step * shaft_lead_mm * syringe_ml_per_mm 
+ 
 class HardwareConfig: 
 
     def __init__(self, config):
@@ -44,7 +51,7 @@ def default_config() -> HardwareConfig:
         'pump_incubator_to_lagoon_burst_vol_ml': 0.165,
         'pump_incubator_to_lagoon_burst_duration_s': 0.5,
         'pump_lagoon_to_waste_burst_duration_s': 0.6,
-        'induction_ml_per_step': 0.5*SYRINGE_ML_PER_MM/2038*4,
+        'induction_ml_per_step': calculate_vol_per_step(STEPS_PER_REVOLUTION, SHAFT_LEAD_MM, SYRINGE_ML_PER_MM),
         'seconds_since_epoch_offset': 0.0,
     } 
     return HardwareConfig(cfg)

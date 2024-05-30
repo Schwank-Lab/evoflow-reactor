@@ -56,6 +56,16 @@ def test_stepper():
     t_start = time.time()
     while (time.time() - t_start) < STEPPER_ON_DURATION_SEC:
         hw.stepper_arabinose_to_lagoon.step_reverse()
+
+def test_stepper_rotation(rotation_deg):
+    num_revolutions = rotation_deg / 360 
+    num_steps = int(hardware_config.STEPS_PER_REVOLUTION * num_revolutions)
+    report_every = 10
+    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps')
+    for i in range(num_steps):
+        hw.stepper_arabinose_to_lagoon.step_forward()
+        if i % report_every == 0:
+            print(f'{i}/{num_steps} steps')
     
 
 def test_stirrers():
@@ -139,9 +149,11 @@ def run_diagnostics():
     stop_all()
     # test_pumps()
     # test_stepper()
+    test_stepper_rotation(90)
     # test_stirrers()
-    test_od()
-    test_heaters()
+    # test_od()
+    # test_heaters()
+    
     
 
 run_diagnostics()

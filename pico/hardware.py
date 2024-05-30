@@ -135,10 +135,10 @@ class Pump:
 class StepperMotor:
     
     FULL_STEP_SEQUENCE = [ ## this are 4 steps
-            [1,0,0,0],
-            [0,1,0,0],
-            [0,0,1,0],
-            [0,0,0,1]
+            [1,1,0,0],
+            [0,1,1,0],
+            [0,0,1,1],
+            [1,0,0,1] # TODO: this is very ugly.
     ]
     
     def __init__(self, pins):
