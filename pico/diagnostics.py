@@ -24,12 +24,12 @@ PUMPS = [
     ('pump_incubator_to_waste', hw.pump_incubator_to_waste),
     ('pump_incubator_to_lagoon', hw.pump_incubator_to_lagoon),
     ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste )
-    ]
+]
 
 HEATERS = [
     ('Temp Incubator', hw.heater_inc, hw.temp_sensor_inc),
     ('Temp Lagoon', hw.heater_lagoon, hw.temp_sensor_lagoon)
-    ]
+]
 
 def stop_all():
     for _, pump in PUMPS:
@@ -55,6 +55,7 @@ def test_stepper():
     print(f'Stepper stepper_arabinose_to_lagoon on for {STEPPER_ON_DURATION_SEC}')
     t_start = time.time()
     while (time.time() - t_start) < STEPPER_ON_DURATION_SEC:
+        # TODO: add progress update.
         hw.stepper_arabinose_to_lagoon.step_reverse()
 
 def test_stepper_rotation(rotation_deg):
@@ -143,20 +144,6 @@ def test_heaters():
     for (name, heater, _) in HEATERS:
         print(f'{name}:\t Heater OFF')
         heater.off()
-    
-
-def run_diagnostics():
-    stop_all()
-    # test_pumps()
-    # test_stepper()
-    test_stepper_rotation(90)
-    # test_stirrers()
-    # test_od()
-    # test_heaters()
-    
-    
-
-run_diagnostics()
 
 
 
