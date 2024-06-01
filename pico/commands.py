@@ -56,6 +56,8 @@ class CommandsDispatcher:
             with open('configs/reactor_config.json', 'w') as f:
                  json.dump(msg['reactor_config'], f)
             self._recreate_pace_controller()
+            time.sleep(2)
+            self._start_controller() 
         elif cmd == 'stepper_forward':
             vol_ml = msg['stepper_vol'] 
             self._stop_controller()
