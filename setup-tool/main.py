@@ -6,6 +6,7 @@ from db.idec import Reactor
 from db import idec_engine
 from sqlalchemy.orm import Session
 import argparse
+import glob
 
 def create_reactor_db_entry(reactor_name):
     reactor = Reactor(name=reactor_name, network_id='0.0.0.0', experiments=[])
@@ -20,17 +21,29 @@ def generate_network_config(reactor_id):
         network_config['reactor_id'] = reactor_id
     return network_config
 
-def generate_commands(network_config: Path):
+def get_port():
+    raise NotImplementedError()
 
-    return f"""mkdir /pyboard/configs
-mkdir /pyboard/logs
-mkdir /pyboard/state
-cp {network_config} /pyboard/configs/network_config.json
-cp pico/configs/default-reactor_config.json /pyboard/configs/reactor_config.json
-cp pico/configs/default-experiment_config.json /pyboard/configs/experiment_config.json
-cp pico/configs/default-reactor_state.json /pyboard/state/reactor_state.json
-cp pico/*.py /pyboard
-"""
+def generate_commands(network_config: Path, port: str):
+    commands = [
+        "rmdir /",
+        "mkdir /configs",
+        "mkdir /logs",
+        "mkdir /state",
+        "mkdir /calibration",
+        f"put {network_config} /configs/network_config.json",
+        "put pico/configs/default-reactor_config.json /configs/reactor_config.json",
+        "put pico/configs/default-experiment_config.json /configs/experiment_config.json",
+        "put pico/configs/default-reactor_state.json /state/reactor_state.json",
+        "put libs /libs"
+    ] 
+    # copy all python scripts. 
+    scripts = glob.glob('pico/*.py')
+    commands += [f"put {script} /{Path(script).name}" for script in scripts]
+    ampy_commands = [f"ampy -p {port} {cmd}" for cmd in commands]
+    sh_commands = [f'echo "{cmd}"; {cmd}' for cmd in ampy_commands]
+    return '\n'.join(sh_commands)
+    # ampy -p {port} put pico/*.py /pyboard
 
 def execute_commands(command_file_path):
     try:
@@ -44,6 +57,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create a reactor and execute commands.')
     parser.add_argument('reactor_name', type=str, help='The name of the reactor to be created')
     parser.add_argument('--reactor_id', type=int, help='The ID of an existing reactor to use', default=None)
+    parser.add_argument('--pico_port', type=str, help='The port of the Pico W. If not provided, will be inferred automatically.', default=None)
 
     args = parser.parse_args()
     if args.reactor_id is None: 
@@ -52,15 +66,22 @@ if __name__ == '__main__':
     else: 
         new_reactor_id = args.reactor_id
         print(f'Using existing reactor with id {new_reactor_id}')
+
+    if args.pico_port is None:
+        port = get_port()
+        print(f'Detected pico W at port {port}')
+    else: 
+        port = args.pico_port
+
     network_config = generate_network_config(reactor_id=new_reactor_id) 
     
     with open('tmp/network_config.json', 'w') as nw_file:
         json.dump(generate_network_config(new_reactor_id), nw_file)
         nw_path = Path(nw_file.name)
 
-    commands = generate_commands(nw_path)
+    commands = generate_commands(nw_path, port)
 
-    with open('tmp/commands.txt', 'w') as cmd_file:
+    with open('tmp/commands.sh', 'w') as cmd_file:
         cmd_file.write(commands)
         cmd_path = Path(cmd_file.name)
 
