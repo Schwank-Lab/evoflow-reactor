@@ -22,7 +22,7 @@ with open('configs/network_config.json') as f:
 with open('state/reactor_state.json') as f:
     reactor_state = json.load(f)
 
-reactor_id = network_config['mqtt_client_id']
+reactor_id = network_config['reactor_id']
 reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
 
 wifi_client = WiFiClient(network_config)
