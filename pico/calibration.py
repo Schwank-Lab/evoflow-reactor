@@ -29,8 +29,7 @@ def stop_all():
     hw.stirrer_lagoon.off()
     hw.pump_incubator_to_lagoon.off()
 
-def calibrate_inc_stirrer():
-    top_speed_frac = hw_config.incubator_stirrer_top_speed_frac
+def calibrate_inc_stirrer(top_speed_frac):
     print(f'Restarting incubator stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
     ctl = pace_controller.StirrerController(hw.stirrer_inc, top_speed_frac)
@@ -38,8 +37,7 @@ def calibrate_inc_stirrer():
     while not q.empty():
         q.cycle()
 
-def calibrate_lagoon_stirrer(): 
-    top_speed_frac = hw_config.lagoon_stirrer_top_speed_frac
+def calibrate_lagoon_stirrer(top_speed_frac): 
     print(f'Restarting lagoon stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
     ctl = pace_controller.StirrerController(hw.stirrer_lagoon, top_speed_frac)
@@ -99,6 +97,7 @@ def calibrate_od(num_probes=5):
         stirrer.restart_motor(task_queue=q, priority=1)
         while not q.empty():
             q.cycle()
+            print('Starting the motor...')
 
         # Measure OD
         for num_measurement in range(num_measurements_per_probe):
@@ -112,7 +111,7 @@ def calibrate_od(num_probes=5):
         
         hw.stirrer_inc.off()
 
-    with open('calibration/od_calibration.csv', 'w') as f: 
+    with open('tmp/od_calibration.csv', 'w') as f: 
         for probe_measurements in measurements:
             f.write(','.join(map(str, probe_measurements)))
             f.write('\n')
@@ -161,5 +160,5 @@ def calibrate_clock():
 # calibrate_temp(36)
 # calibrate_od(num_probes=6)
 # calibrate_lagoon_stirrer()
-calibrate_pump_incubator_to_lagoon(target_vol=50)
+# calibrate_pump_incubator_to_lagoon(target_vol=50)
 # calibrate_clock()
