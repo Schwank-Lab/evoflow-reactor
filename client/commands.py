@@ -21,7 +21,7 @@ def create_payload(args):
     }
     if args.experiment_id:
         payload["experiment_id"] = args.experiment_id
-    if args.config and args.command in ['new_experiment', 'update_experiment_config']:
+    if args.config and args.command in ['new_experiment', 'update_experiment']:
         payload["experiment_config"] = load_config(args.config)
     if args.config and args.command == 'update_reactor_config':
         payload['reactor_config'] = load_config(args.config)
@@ -32,7 +32,7 @@ def create_payload(args):
 # Set up argument parser
 parser = argparse.ArgumentParser(description='Send commands to the experiments via MQTT.')
 parser.add_argument('reactor_id', type=str, help='ID of the reactor')
-parser.add_argument('command', type=str, choices=['start', 'stop', 'pause', 'new_experiment', 'update_experiment_config', 
+parser.add_argument('command', type=str, choices=['start', 'stop', 'pause', 'new_experiment', 'update_experiment', 
                                                   'stepper_forward', 'stepper_reverse', 'stepper_stop',
                                                   'update_reactor_config'],
                     help='Command to send to the reactor')
@@ -44,7 +44,7 @@ parser.add_argument('--stepper_vol', type=int, help='Volume of the stepper motor
 args = parser.parse_args()
 
 # Validate arguments for specific commands
-if args.command in ['new_experiment', 'update_experiment_config']:
+if args.command in ['new_experiment', 'update_experiment']:
     if not args.experiment_id or not args.config:
         parser.error("experiment_id and config are required for new_experiment and update_experiment_config commands")
     if not args.config: 
