@@ -29,5 +29,38 @@ In all the commands below, replace X with the pico port you obtained before.
 2. Run `poetry run ampy -p XX run diagnostics/diagnostics_stirrers.py`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
 3. Run `poetry run ampy -p XX run diagnostics/diagnostics_heaters.py`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
 4. Run `poetry run ampy -p XX run diagnostics/diagnostics_od.py`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-5. Run `poetry run ampy -p XX run diagnostics/diagnostics_stepper.py`. You should observe stepper shaft rotating. 
+5. Run `poetry run ampy -p XX run diagnostics/diagnostics_stepper.py`. You should observe stepper shaft rotating.
 
+### Reactor calibration 
+
+1. Create a new folder for calibration in `experiments` called `YYYMMDD_YY`, where YY is the reactor name.
+2. Run `poetry run ampy -p XX get configs/reactor_config.json experiments/YYYMMDD_YY/old_reactor_config.json`. Replace folder with the correct name. 
+3. Start a jupyter server by running `poetry run jupyter lab`. This should launch the browser with a jupyter instance. 
+4. Navigate to `calibration/calibration.ipynb`
+
+
+#### Temperature Calibration
+
+To calibrate the temperature, we need to heat both lagoon and tubribostat to a pre-defined temperature and then measure the actual temperature. 
+Recommended set of temperature to use are: 27, 30, 35, 39
+
+1. Open file `calibration/calibration_temp.py` and change the line `calibrate_temp(40)` to the temp you want.
+2. Run `poetry run ampy -p /dev/cu.usbmodem1101 run calibration/calibration_temp.py`
+3. Monitor the output, after you see that `T(inc)` and `T(lagoon)` have reached the defined temperature, measure the actual temperature in the glass tubes and note it in the jupyter notebook.
+
+#### OD Calibration 
+
+To calibrate OD, we need to measure ODs of the probes with the known OD value. We have such probes, use some of them. Recommended is OD0.1, OD0.4, OD0.6, OD0.8, OD1.0
+
+1. Run `poetry run ampy -p XX run calibration/calibration_od.py` and follow instructions.
+2. Run `poetry run ampy -p XX get tmp/od_calibration.csv experiments/YYYMMDD_YY/od.csv`
+
+#### Pump Calibration 
+
+The only pump we care about is the turbidostat -> lagoon pump. To calibrate it, we're going to pump a known volume.
+
+1. Attach tubing to the turbidostat -> lagoon pump (3rd pump). Add ~100ml of liquid into a bottle, dip the input tube into that bottle.
+2. Prime the tube by manually activating the pump, until the wholte tubing is filled water.
+3. Put the outlet into an empty bottle, measure the weight of the empty bottle beforehand.
+4. Run `poetry run ampy -p XX run calibration/calibration_pumps.py`
+5. Measure the volume after pumping is finished, write results to the jupyter notebook.
