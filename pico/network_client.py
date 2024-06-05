@@ -100,4 +100,6 @@ class MqttClient:
         self._mqtt_client.publish(topic, msg, qos=qos)
          
     def receive(self): 
+        if not self._mqtt_connected:
+            raise ValueError('Mqtt Client: cannot receive messages, MQTT not connected.')
         self._mqtt_client.check_msg()

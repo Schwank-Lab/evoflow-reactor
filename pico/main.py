@@ -60,6 +60,13 @@ mqtt_state_recorder = MqttStateRecorder(reactor_id, mqtt_client, local_logger)
 commads_dispatcher = CommandsDispatcher(reactor_id, controller, local_logger)
 mqtt_client.add_subscriber('commands', commads_dispatcher._process_commands) # TODO: refactor
 
+def receive_mqtt_commands(): 
+    try: 
+         mqtt_client.receive()
+    except OSError as ex: 
+        local_logger.info('Mqtt Client: Error receiving message', ex)
+        mqtt_client.restore_connection()
+
 try: 
     while True:
         if controller.is_running():
@@ -68,7 +75,8 @@ try:
             mqtt_state_recorder.record(reactor_state)
             console_logger.info(json.dumps(reactor_state))
             
-        mqtt_client.receive()
+            receive_mqtt_commands()
+       
         time.sleep(1)
 
 except KeyboardInterrupt:
