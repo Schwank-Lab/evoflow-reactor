@@ -73,3 +73,8 @@ The only pump we care about is the turbidostat -> lagoon pump. To calibrate it, 
 4. Observe the vortex in the probe.
 
 
+#### Run calibration 
+
+1. In the jupyter notebook, click on `Run All`
+2. Run `ampy -p $PICO_PORT put experiments/$EXP_NAME/new_reactor_config.json configs/reactor_config.json`
+
