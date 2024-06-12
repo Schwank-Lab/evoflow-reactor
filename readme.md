@@ -21,7 +21,7 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
  4. Run `poetry run python setup-tool/main.py --reactor_id XX --pico_port $PICO_PORT REACTOR_NAME`.
       XX - reactor id, when in doubt remove the `--reactor_id XX` part of the command and a new reactor will  be registered in the database
       REACTOR_NAME - reactor name, should be written on the reactor itself, e.g. Alpha
- 5. Run `sh tmp/commands.sh`. Make sure there's no errors 
+ 5. Run `sh /tmp/commands.sh`. Make sure there's no errors 
 
 ### Reactor diagnostics 
 
