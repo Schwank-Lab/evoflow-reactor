@@ -2,9 +2,9 @@ from pathlib import Path
 import json 
 import tempfile
 import subprocess
-from db.idec import Reactor
-from db import idec_engine
-from sqlalchemy.orm import Session
+# from db.idec import Reactor
+# from db import idec_engine
+# from sqlalchemy.orm import Session
 import argparse
 import glob
 
@@ -30,7 +30,7 @@ def generate_commands(network_config: Path, port: str):
         "mkdir /configs",
         "mkdir /logs",
         "mkdir /state",
-        "mkdir /calibration",
+        "mkdir /tmp",
         f"put {network_config} /configs/network_config.json",
         "put pico/configs/default-reactor_config.json /configs/reactor_config.json",
         "put pico/configs/default-experiment_config.json /configs/experiment_config.json",
