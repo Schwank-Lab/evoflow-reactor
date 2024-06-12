@@ -9,3 +9,4 @@ calibration/temp_calibration_logs
 .micropico
 pico/pico.code-workspace
 tmp
+client/configs
