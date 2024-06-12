@@ -14,5 +14,5 @@ if __name__ == '__main__':
         print('Could not find the pico attached.')
     else: 
         print(f'Pico is found at port:\n{port}')
-        with open('tmp/pico_port.txt', 'w') as f: 
+        with open('./pico_port.txt', 'w') as f: 
             f.write(port)
