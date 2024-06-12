@@ -16,7 +16,18 @@ def ensure_tmp_dir():
         os.makedirs(tmp_dir)
     return tmp_dir
 
+def check_reactor_name_exists_in_db(reactor_name):
+    with Session(idec_engine()) as session:
+        db_reactor_name = session.execute(select(Reactor.name).where(Reactor.name == reactor_name)).fetchall()
+        session.commit()
+    if db_reactor_name is not None:
+        return 1
+    return 0
+
 def create_reactor_db_entry(reactor_name):
+    if check_reactor_name_exists_in_db:
+        raise RuntimeError("This name already exists in db! Change it and try again")
+
     reactor = Reactor(name=reactor_name, network_id='0.0.0.0', experiments=[])
     with Session(idec_engine()) as session: 
         session.add(reactor)
