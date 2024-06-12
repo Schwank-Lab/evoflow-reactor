@@ -34,16 +34,22 @@ def calibrate_inc_stirrer(top_speed_frac):
     q = pace_controller.TaskQueue(clk)
     ctl = pace_controller.StirrerController(hw.stirrer_inc, top_speed_frac)
     ctl.restart_motor(q, priority=1)
+    i = 0
     while not q.empty():
+        print(f'Starting the stirrer {i}...')
         q.cycle()
+        i += 1 
 
 def calibrate_lagoon_stirrer(top_speed_frac): 
     print(f'Restarting lagoon stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
     ctl = pace_controller.StirrerController(hw.stirrer_lagoon, top_speed_frac)
     ctl.restart_motor(q, priority=1)
+    i = 0
     while not q.empty():
+        print(f'Starting the stirrer {i}...')
         q.cycle()
+        i += 1 
 
 
 def calibrate_temp(target_temp):
