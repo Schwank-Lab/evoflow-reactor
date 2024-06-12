@@ -75,8 +75,7 @@ try:
             mqtt_state_recorder.record(reactor_state)
             console_logger.info(json.dumps(reactor_state))
             
-            receive_mqtt_commands()
-       
+        receive_mqtt_commands()
         time.sleep(1)
 
 except KeyboardInterrupt:
