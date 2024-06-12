@@ -2,9 +2,9 @@ from pathlib import Path
 import json 
 import tempfile
 import subprocess
-# from db.idec import Reactor
-# from db import idec_engine
-# from sqlalchemy.orm import Session
+from evoflow_db.idec import Reactor
+from evoflow_db import idec_engine
+from sqlalchemy.orm import Session
 import argparse
 import glob
 
