@@ -13,6 +13,7 @@ rshell = "^0.0.32"
 # db = { git = "git@github.com:Schwank-Lab/evoflow-monitor.git", branch = "deploy", subdirectory = "evohub/db" }
 adafruit-ampy = "^1.1.0"
 paho-mqtt = "^2.1.0"
+jupyter = "^1.0.0"
 
 
 [build-system]
