@@ -1,12 +1,20 @@
 from pathlib import Path
 import json 
 import tempfile
+import os
 import subprocess
 from evoflow_db.idec import Reactor
 from evoflow_db import idec_engine
 from sqlalchemy.orm import Session
 import argparse
 import glob
+
+
+def ensure_tmp_dir():
+    tmp_dir = tempfile.gettempdir()
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
+    return tmp_dir
 
 def create_reactor_db_entry(reactor_name):
     reactor = Reactor(name=reactor_name, network_id='0.0.0.0', experiments=[])
@@ -74,14 +82,15 @@ if __name__ == '__main__':
         port = args.pico_port
 
     network_config = generate_network_config(reactor_id=new_reactor_id) 
-    
-    with open('tmp/network_config.json', 'w') as nw_file:
+    tmp_dir = ensure_tmp_dir()
+
+    with open('/tmp/network_config.json', 'w') as nw_file:
         json.dump(generate_network_config(new_reactor_id), nw_file)
         nw_path = Path(nw_file.name)
 
     commands = generate_commands(nw_path, port)
 
-    with open('tmp/commands.sh', 'w') as cmd_file:
+    with open('/tmp/commands.sh', 'w') as cmd_file:
         cmd_file.write(commands)
         cmd_path = Path(cmd_file.name)
 
