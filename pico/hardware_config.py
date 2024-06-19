@@ -1,7 +1,7 @@
 import json
 
 SYRINGE_ML_PER_MM = 30/78
-SHAFT_LEAD_MM = 2
+SHAFT_LEAD_MM = 0.5 
 STEPS_PER_REVOLUTION = 2038 // 4
 HAHRDWARE_CONFIG_FILE = 'configs/hardware_config.json'
 EXPERIMENT_CONFIG_FILE = 'configs/experiment_config.json'
