@@ -34,18 +34,22 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 ### Reactor calibration 
 
 1. Run `export EXP_NAME=your_experiment_name`, e.g. `export EXP_NAME=20240405_bravo`
-2. Run `ampy -p $PICO_PORT get configs/reactor_config.json experiments/$EXP_NAME/old_reactor_config.json`. Replace folder with the correct name. 
-3. Start a jupyter server by running `poetry run jupyter lab`. This should launch the browser with a jupyter instance. 
-4. Navigate to `calibration/calibration.ipynb`
+2. Run `mkdir -p experiments/$EXP_NAME`  
+3. Run `ampy -p $PICO_PORT get configs/reactor_config.json experiments/$EXP_NAME/old_reactor_config.json`.
 
+Open a new terminal window and run the following commands: 
+1. Start a jupyter server by running `poetry run jupyter lab`. This should launch the browser with a jupyter instance.
+2. Navigate to calibration/calibration.ipynb
+
+Now, go back to the previous terminal tab and continue executing commands there. 
 
 #### Temperature Calibration
 
 To calibrate the temperature, we need to heat both lagoon and tubribostat to a pre-defined temperature and then measure the actual temperature. 
 Recommended set of temperature to use are: 27, 30, 35, 39
 
-1. Run
-2. Run `ampy -p $PICO_PORT run calibration/calibration_temp.py`
+1. Run `python calibration/calibration_temp.py YOUR_TEMP`
+2. Run `ampy -p $PICO_PORT run temp/calibrate_temp.py`
 3. Monitor the output, after you see that `T(inc)` and `T(lagoon)` have reached the defined temperature, measure the actual temperature in the glass tubes and note it in the jupyter notebook.
 
 #### OD Calibration 
