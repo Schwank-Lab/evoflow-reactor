@@ -66,7 +66,7 @@ The only pump we care about is the turbidostat -> lagoon pump. To calibrate it, 
 1. Attach tubing to the turbidostat -> lagoon pump (3rd pump). Add ~100ml of liquid into a bottle, dip the input tube into that bottle.
 2. Prime the tube by manually activating the pump, until the wholte tubing is filled water.
 3. Put the outlet into an empty bottle, measure the weight of the empty bottle beforehand.
-4. Run `ampy -p XX run calibration/calibration_pumps.py`
+4. Run `ampy -p $PICO_PORT run calibration/calibration_pumps.py`
 5. Measure the volume after pumping is finished, write results to the jupyter notebook.
 
 #### Stirrer Calibration 
