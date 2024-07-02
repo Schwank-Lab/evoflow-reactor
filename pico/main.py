@@ -11,6 +11,7 @@ from commands import CommandsDispatcher
 import time 
 import _thread
 import json
+import ntptime
 
 
 """"
@@ -25,10 +26,17 @@ with open('state/reactor_state.json') as f:
 reactor_id = network_config['reactor_id']
 reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
 
+clock = Clock()
 wifi_client = WiFiClient(network_config)
+wifi_client.request_wifi_connection()
+print('Requesting NTP time... Time before request:', clock.localtime())
+ntptime.settime()
+clock.set_start_time(time.ticks_ms())
+print('Time after request:', clock.localtime())
+
 mqtt_client = MqttClient(wifi_client, network_config)
 
-clock = Clock(second_since_epoch_offset=reactor_config.seconds_since_epoch_offset)
+
 console_logger = ConsoleLogger(clock, level=logger.L_INFO)
 # TODO: fix mqtt logger before re-enabling it.
 # mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_INFO) 
@@ -52,7 +60,6 @@ if reactor_state['status'] == 'running':
 else:
     local_logger.info('[MAIN] Experiment is idle, reactor not started.')
 
-wifi_client.request_wifi_connection()
 mqtt_client.request_mqtt_connection()
 
 file_state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)

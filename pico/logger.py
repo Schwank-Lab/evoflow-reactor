@@ -1,5 +1,7 @@
 import os
 import json 
+import time 
+
 
 L_DEBUG = 1
 L_INFO = 2
@@ -57,10 +59,19 @@ class FileLogger(Logger):
             pass
         # Simplified timestamp using epoch seconds
         timestamp = self.clock.time_since_epoch()
-        self.log_file = FileLogger.log_dir + "log_" + str(timestamp) + ".txt"
-        
+        self.log_file_date = self._localdate(timestamp)
+        self.log_file = FileLogger.log_dir + "log_" + self.log_file_date + '_' + str(timestamp) +  ".txt"
+    
+    def _localdate(self, timestamp):
+        localtime_tuple = time.localtime(timestamp)
+        # Format the local time as a string
+        return "{:04d}-{:02d}-{:02d}".format(*localtime_tuple[0:3])
   
     def _record_log_message(self, message):
+        curr_date = self._localdate(self.clock.time_since_epoch())
+        if curr_date != self.log_file_date:
+            FileLogger.clear_old_logs(self.clock)
+            self._create_log_file()
         with open(self.log_file, 'a') as f:
                 f.write(message + '\n')
 
@@ -71,7 +82,7 @@ class FileLogger(Logger):
             # Use file creation time for comparison (not available in MicroPython, so using a workaround)
             try:
                 # Workaround: Assume file name contains creation timestamp
-                file_timestamp = int(filename.split('_')[1].split('.')[0])
+                file_timestamp = int(filename.split('_')[-1].split('.')[0])
                 if (clock.time_since_epoch() - file_timestamp) > (days * 24 * 3600):
                     os.remove(file_path)
             except ValueError:

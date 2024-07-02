@@ -19,7 +19,7 @@ class Clock:
         """ Time in seconds since epoch"""
         return time.time() + self._second_since_epoch_offset
 
-    def  set_start_time(self, start):
+    def set_start_time(self, start):
         """ Set start time in milliseconds"""
         self._start = start
 
@@ -36,6 +36,8 @@ class Clock:
         localtime_tuple = time.localtime(self.time_since_epoch())
         # Format the local time as a string
         return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*localtime_tuple[0:6])
+    
+    
 
 
 class ODSensor:
