@@ -6,6 +6,7 @@ import subprocess
 from evoflow_db.idec import Reactor
 from evoflow_db import idec_engine
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func
 import argparse
 import glob
 
@@ -18,14 +19,13 @@ def ensure_tmp_dir():
 
 def check_reactor_name_exists_in_db(reactor_name):
     with Session(idec_engine()) as session:
-        db_reactor_name = session.execute(select(Reactor.name).where(Reactor.name == reactor_name)).fetchall()
+        db_reactor_name = session.execute(select(Reactor.name)
+                                          .where(Reactor.name.ilike(reactor_name))).fetchall()
         session.commit()
-    if db_reactor_name is not None:
-        return 1
-    return 0
+        return len(db_reactor_name) > 0
 
 def create_reactor_db_entry(reactor_name):
-    if check_reactor_name_exists_in_db:
+    if check_reactor_name_exists_in_db(reactor_name):
         raise RuntimeError("This name already exists in db! Change it and try again")
 
     reactor = Reactor(name=reactor_name, network_id='0.0.0.0', experiments=[])
