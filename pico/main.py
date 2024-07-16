@@ -13,40 +13,18 @@ import _thread
 import json
 import ntptime
 
-
-def sync_time(clock, network_config):
-    ntptime.host = network_config['mqtt_host']
-    print('Requesting NTP time... Time before request:', clock.localtime())
-
-    try:
-        ntptime.settime()
-        clock.set_start_time(time.ticks_ms())
-        print('Time after request:', clock.localtime())
-    except Exception:
-        print('Could not synchronize time')
-        
-""""
-Create and start controller 
+"""
+Initialize hardware
 """
 
 reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
 hardware = Hardware(reactor_config)
 
-with open('configs/network_config.json') as f: 
-    network_config = json.load(f)
-with open('state/reactor_state.json') as f:
-    reactor_state = json.load(f)
-
-reactor_id = network_config['reactor_id']
+"""
+Create and start controller 
+"""
 
 clock = Clock()
-wifi_client = WiFiClient(network_config)
-wifi_client.request_wifi_connection()
-sync_time(clock, network_config)
-
-mqtt_client = MqttClient(wifi_client, network_config)
-
-
 console_logger = ConsoleLogger(clock, level=logger.L_INFO)
 # TODO: fix mqtt logger before re-enabling it.
 # mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_INFO) 
@@ -56,12 +34,14 @@ local_logger = CompositeLogger([console_logger, file_logger])
 thread = lambda fn, *args: _thread.start_new_thread(fn, args)
 controller = PaceController(clock, thread, logger=local_logger)
 
-
 with open('configs/experiment_config.json') as f:
     experiment_config = json.load(f)
 
 experiment_id = experiment_config['experiment_id']
 controller.init(hardware, reactor_config, experiment_config)
+
+with open('state/reactor_state.json') as f:
+    reactor_state = json.load(f)
 
 if reactor_state['status'] == 'running':
     local_logger.info('[MAIN] Starting experiment...')
@@ -69,6 +49,31 @@ if reactor_state['status'] == 'running':
 else:
     local_logger.info('[MAIN] Experiment is idle, reactor not started.')
 
+
+""""
+Connect to the network and MQTT broker
+"""
+
+def sync_time(clock, network_config):
+    ntptime.host = network_config['mqtt_host']
+    print('Requesting NTP time... Time before request:', clock.localtime())
+
+    try:
+        ntptime.settime()
+        print('Time after request:', clock.localtime())
+    except Exception:
+        print('Could not synchronize time')
+
+
+with open('configs/network_config.json') as f: 
+    network_config = json.load(f)
+reactor_id = network_config['reactor_id']
+
+wifi_client = WiFiClient(network_config)
+wifi_client.request_wifi_connection()
+sync_time(clock, network_config)
+
+mqtt_client = MqttClient(wifi_client, network_config)
 mqtt_client.request_mqtt_connection()
 
 file_state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)
@@ -83,6 +88,9 @@ def receive_mqtt_commands():
         local_logger.info('Mqtt Client: Error receiving message', ex)
         mqtt_client.restore_connection()
 
+"""
+Record reactor state, process commands
+"""
 try: 
     while True:
         if controller.is_running():
@@ -100,8 +108,3 @@ except Exception as e:
 finally: 
     controller.stop()
     mqtt_client._mqtt_client.disconnect() # TODO: refactor.
-
-
-
-
-

@@ -1,9 +1,6 @@
 import network
 from libs.umqtt.simple import MQTTClient
 from time import sleep
-import _thread
-from math import sin
-import uasyncio as asyncio
 
 STATE_UNKNOWN = 0
 STATE_WIFI_NOT_CONNECTED = 1

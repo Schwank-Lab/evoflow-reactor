@@ -7,17 +7,16 @@ import time
 
 class Clock:
 
-    def __init__(self, second_since_epoch_offset=0):
-        self._start = time.ticks_ms()
-        self._second_since_epoch_offset = second_since_epoch_offset
-    
-    def time_ms(self):
+    def __init__(self):
+        pass
+        
+    def ticks_ms(self):
         """ Time in milliseconds since start"""
-        return time.ticks_ms() - self._start
+        return time.ticks_ms()
     
     def time_since_epoch(self):
         """ Time in seconds since epoch"""
-        return time.time() + self._second_since_epoch_offset
+        return time.time()
 
     def set_start_time(self, start):
         """ Set start time in milliseconds"""

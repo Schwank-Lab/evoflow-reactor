@@ -96,7 +96,7 @@ class TaskQueue:
             dalay: time in milliseconds after which the task should be executed (from the current timepoint)
             priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
         """
-        self._put_task(self._clock.time_ms()+delay_ms, priority, Task(task, args))
+        self._put_task(self._clock.ticks_ms()+delay_ms, priority, Task(task, args))
 
     def repeat(self, interval, task, *args, priority=1):
         """ Schedule a task to be executed at a given interval. 
@@ -105,7 +105,7 @@ class TaskQueue:
             priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
         """
         repeat_task = Task(task, args, interval_ms=interval)
-        self._put_task(self._clock.time_ms(), priority, repeat_task)
+        self._put_task(self._clock.ticks_ms(), priority, repeat_task)
 
     def repeat_n(self, interval, n_repeats, task, *args, priority=1):
         """ Schedule a task to be executed at a given interval for a given number of times. 
@@ -114,18 +114,18 @@ class TaskQueue:
             priority: if two tasks are scheduled to be executed at the same timepoint, order is determined by priority.
         """
         repeat_task = Task(task, args, interval_ms=interval, n_repeats=n_repeats)
-        self._put_task(self._clock.time_ms(), priority, repeat_task)
+        self._put_task(self._clock.ticks_ms(), priority, repeat_task)
 
     def cycle(self):
         """ Retrieve next task from the priority queue and execute it. """
-        t = self._clock.time_ms()
+        t = self._clock.ticks_ms()
         t_next_ms, priority, task = self._task_queue.get()
         if t_next_ms > t: 
             self._clock.sleep_ms(t_next_ms - t)
         _logger.debug(f"TaskQueue#cycle {t_next_ms/1000:.3f}")
         task.run()
         if task.repeat():
-            t = self._clock.time_ms()
+            t = self._clock.ticks_ms()
             self._put_task(t+task.interval, priority, task)
 
     def empty(self):
@@ -326,7 +326,7 @@ class ODController():
         if abs(od - median_od) < self._filter_deviation_th:
             self._current_od = od
         else: 
-            _logger.info(f'ODController: measured OD = {od:.2f} is an outlier, median OD = {od:.2f}')
+            _logger.info(f'ODController: measured OD = {od:.2f} is an outlier, median OD = {median_od:.2f}')
         
         _logger.debug(f'ODController: measured OD = {od:.2f}, filtered OD = {self._current_od:.2f}')
         
