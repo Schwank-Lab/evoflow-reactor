@@ -14,9 +14,23 @@ import json
 import ntptime
 
 
+def sync_time(clock, network_config):
+    ntptime.host = network_config['mqtt_host']
+    print('Requesting NTP time... Time before request:', clock.localtime())
+
+    try:
+        ntptime.settime()
+        clock.set_start_time(time.ticks_ms())
+        print('Time after request:', clock.localtime())
+    except Exception:
+        print('Could not synchronize time')
+        
 """"
 Create and start controller 
 """
+
+reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
+hardware = Hardware(reactor_config)
 
 with open('configs/network_config.json') as f: 
     network_config = json.load(f)
@@ -24,15 +38,11 @@ with open('state/reactor_state.json') as f:
     reactor_state = json.load(f)
 
 reactor_id = network_config['reactor_id']
-reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
 
 clock = Clock()
 wifi_client = WiFiClient(network_config)
 wifi_client.request_wifi_connection()
-print('Requesting NTP time... Time before request:', clock.localtime())
-ntptime.settime()
-clock.set_start_time(time.ticks_ms())
-print('Time after request:', clock.localtime())
+sync_time(clock, network_config)
 
 mqtt_client = MqttClient(wifi_client, network_config)
 
@@ -51,7 +61,6 @@ with open('configs/experiment_config.json') as f:
     experiment_config = json.load(f)
 
 experiment_id = experiment_config['experiment_id']
-hardware = Hardware(reactor_config)
 controller.init(hardware, reactor_config, experiment_config)
 
 if reactor_state['status'] == 'running':
@@ -84,14 +93,15 @@ try:
             
         receive_mqtt_commands()
         time.sleep(1)
-
 except KeyboardInterrupt:
     print('Aborting the run...')
 except Exception as e:
-    local_logger.critical('[MAIN] unhandled exception', e)
+    local_logger.exception('[MAIN] unhandled exception', e)
 finally: 
     controller.stop()
     mqtt_client._mqtt_client.disconnect() # TODO: refactor.
+
+
 
 
 

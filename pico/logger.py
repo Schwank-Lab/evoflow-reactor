@@ -1,7 +1,8 @@
 import os
 import json 
 import time 
-
+import uio
+import sys
 
 L_DEBUG = 1
 L_INFO = 2
@@ -22,6 +23,11 @@ class Logger:
 
     def critical(self, *args):
         self.log(L_CRITICAL, *args)
+    
+    def exception(self, msg, e):
+        buf = uio.StringIO()
+        sys.print_exception(e, buf)
+        self.critical(msg, '\n', buf.getvalue())
 
     def _get_level_name(self, level):
         if level == L_DEBUG:
@@ -125,3 +131,4 @@ class CompositeLogger(Logger):
         for logger in self.loggers:
             logger.log(level, *args)
             
+
