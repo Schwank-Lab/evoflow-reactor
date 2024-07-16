@@ -40,9 +40,23 @@ class CommandsDispatcher:
         cmd = msg['command']
         self._logger.info('CommandDispatcher: received command: ', cmd)
         if cmd == 'start':
+            self._stop_controller()
             self._start_controller()
         elif cmd == 'stop' or cmd == 'pause':
             self._stop_controller()
+        elif cmd == 'stepper_forward':
+            vol_ml = msg['stepper_vol'] 
+            self._stop_controller()
+            time.sleep(2) # give thread some time to finish.
+            self._pace_controller.reset_stepper_forward(vol_ml)
+        elif cmd == 'stepper_reverse': 
+            vol_ml = msg['stepper_vol']
+            self._stop_controller()
+            time.sleep(2)
+            self._pace_controller.reset_stepper_reverse(vol_ml)
+        elif cmd == 'stepper_stop':
+            self._stop_controller()
+            # controller has to be restarted manually.
         elif cmd == 'new_experiment' or cmd == 'update_experiment':
             self._logger.info('Command Dispatcher: udpating experiment config')
             msg['experiment_config']['experiment_id'] = int(msg['experiment_id'])
@@ -58,23 +72,5 @@ class CommandsDispatcher:
             self._recreate_pace_controller()
             time.sleep(2)
             self._start_controller() 
-        elif cmd == 'stepper_forward':
-            vol_ml = msg['stepper_vol'] 
-            self._stop_controller()
-            time.sleep(2) # give thread some time to finish.
-            self._pace_controller.reset_stepper_forward(vol_ml)
-        elif cmd == 'stepper_reverse': 
-            vol_ml = msg['stepper_vol']
-            self._stop_controller()
-            time.sleep(2)
-            self._pace_controller.reset_stepper_reverse(vol_ml)
-        elif cmd == 'stepper_stop':
-            self._stop_controller()
-            # controller has to be resarted manually.
         else:
             self._logger.critical('CommandDispatcher: unknown command', cmd)
-
-
-
-
-    
