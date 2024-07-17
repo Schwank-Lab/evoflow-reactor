@@ -81,7 +81,7 @@ class Clock:
     def __init__(self):
         self._start = s_to_ms(time.time()) 
     
-    def time_ms(self):
+    def ticks_ms(self):
         """ Time in milliseconds since start"""
         return s_to_ms(time.time()) - self._start
     
