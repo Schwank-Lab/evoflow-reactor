@@ -1,7 +1,6 @@
 import os
 import json 
 import time 
-import uio
 import sys
 
 L_DEBUG = 1
@@ -25,6 +24,7 @@ class Logger:
         self.log(L_CRITICAL, *args)
     
     def exception(self, msg, e):
+        import uio
         buf = uio.StringIO()
         sys.print_exception(e, buf)
         self.critical(msg, '\n', buf.getvalue())
