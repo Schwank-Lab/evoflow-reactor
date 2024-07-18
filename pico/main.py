@@ -73,8 +73,8 @@ wifi_client = WiFiClient(network_config)
 wifi_client.request_wifi_connection()
 sync_time(clock, network_config)
 
-mqtt_client = MqttClient(wifi_client, network_config)
-mqtt_client.request_mqtt_connection()
+mqtt_client = MqttClient(wifi_client, network_config, local_logger)
+mqtt_client.request_mqtt_connection(force_topic_resubscribe=True)
 
 file_state_recorder = FileStateRecorder(clock, experiment_id, record_every_s = 5*60)
 mqtt_state_recorder = MqttStateRecorder(reactor_id, mqtt_client, local_logger)
@@ -85,7 +85,7 @@ def receive_mqtt_commands():
     try: 
          mqtt_client.receive()
     except OSError as ex: 
-        local_logger.info('Mqtt Client: Error receiving message', ex)
+        local_logger.exception('Mqtt Client: Error receiving message', ex)
         mqtt_client.restore_connection()
 
 """

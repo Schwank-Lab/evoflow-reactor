@@ -38,7 +38,7 @@ class WiFiClient:
 
 class MqttClient:
     
-    def __init__(self, wifi_client: WiFiClient, config: dict):
+    def __init__(self, wifi_client: WiFiClient, config: dict, logger):
         self._wifi = wifi_client
         self._config = config
         self._mqtt_client = MQTTClient(
@@ -50,6 +50,7 @@ class MqttClient:
         self._mqtt_client.set_callback(self._process_message)
         self._mqtt_connected = False
         self._subscribers = {}
+        self._logger = logger
 
     def add_subscriber(self, topic, callback): 
         if topic not in self._subscribers.keys():
@@ -62,41 +63,49 @@ class MqttClient:
     def _process_message(self, topic, msg):
         topic = topic.decode('utf-8')
         msg = msg.decode('utf-8')
-        print('Mqtt Client: received message', topic, msg)
+        self._logger.info('Mqtt Client: received message', topic, msg)
         if topic in self._subscribers.keys():
             for callback in self._subscribers[topic]:
                 callback(msg)
 
     def request_mqtt_connection(self, force_topic_resubscribe=False):
         if self._wifi._state != STATE_WIFI_CONNECTED:
-            raise ValueError("Mqtt Client: cannot connect to MQTT broker. WiFi not ready ...")
-        print("Mqtt Client: Connecting to broker ...")
+            self._logger.critical("Mqtt Client: cannot connect to MQTT broker. WiFi not ready ...")
+            return False
+        self._logger.info("Mqtt Client: Connecting to broker ...")
         # We connect to the broker with a persistent session, 
         # to make sure messages lost during wifi disconnection are re-sent
-        is_restored_session = self._mqtt_client.connect(clean_session=False)
+        try :
+            is_restored_session = self._mqtt_client.connect(clean_session=False)
+        except OSError as e:
+            self._logger.exception("Mqtt Client: Error connecting to broker", e)
+            return False
         self._mqtt_connected = True
-        print("Mqtt Client: Connecting to broker ... Done")
+        self._logger.info("Mqtt Client: Connecting to broker ... Done")
         
         if not force_topic_resubscribe and is_restored_session:
-            print('Skipping topic resubscription.')
+            self._logger.info('Skipping topic resubscription.')
             return 
         
-        print('Mqtt Client: Subscribing to topics ...')
+        self._logger.info('Mqtt Client: Subscribing to topics ...')
         for topic in self._subscribers.keys():
             self._mqtt_client.subscribe(topic)
-        print('Mqtt Client: Subscribing to topics ... Done')
+        self._logger.info('Mqtt Client: Subscribing to topics ... Done')
+        return True
         
-    def restore_connection(self): 
+    def restore_connection(self) -> bool: 
         self._mqtt_connected = False
         self._wifi.check_wifi_connection()
-        self.request_mqtt_connection()
+        return self.request_mqtt_connection()
 
     def publish(self, topic, msg, qos=0):
         if self._mqtt_connected == False: 
-            raise ValueError('Mqtt Client: cannot publish the message, MQTT not connected.')
+            self._logger.critical('Mqtt Client: cannot publish the message, MQTT not connected.')
         self._mqtt_client.publish(topic, msg, qos=qos)
+        return True
          
     def receive(self): 
         if not self._mqtt_connected:
-            raise ValueError('Mqtt Client: cannot receive messages, MQTT not connected.')
+            self._logger.critical('Mqtt Client: cannot receive messages, MQTT not connected.')
         self._mqtt_client.check_msg()
+        return True
