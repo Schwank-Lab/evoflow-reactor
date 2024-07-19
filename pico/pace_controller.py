@@ -213,6 +213,9 @@ class PaceController():
     def stop(self):
         self._is_running = False
         self._is_resetting_stepper = False
+        while self._background_thread_running:
+            pass
+        print('PaceController: stopped')
     
     def is_running(self): 
         return self._is_running
@@ -221,11 +224,18 @@ class PaceController():
         return self._is_resetting_stepper
     
     def _run(self):
+        self._background_thread_running = True
         while not self._task_queue.empty() and (self ._is_running or self._is_resetting_stepper):
-            self._task_queue.cycle()
+            try: 
+                self._task_queue.cycle()
+            except Exception as ex: 
+                _logger.exception('PaceController: Error in task queue cycle', ex)
+                # sys.exit() #TODO: recover
+
         _logger.info('PaceController: stopping the controller')
         self._task_queue.clear()
         self._stop_all_hardware()
+        self._background_thread_running = False
 
     def _stop_all_hardware(self):
           hw = self._hardware
