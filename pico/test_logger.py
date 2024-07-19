@@ -60,10 +60,10 @@ class TestCase:
         new_message = "This is a log message on the new date."
 
         logger._record_log_message(initial_message)
-        initial_log_file = logger.log_file
+        initial_log_file = logger._log_file
         self. fake_clock.advance_time(24 * 3600 + 1)
         logger._record_log_message(new_message)
-        new_log_file = logger.log_file
+        new_log_file = logger._log_file
 
         assert utils.file_exists(initial_log_file), "Initial log file was not created."
         assert utils.file_exists(new_log_file), "New log file was not created after date change."

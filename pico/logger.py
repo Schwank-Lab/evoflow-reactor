@@ -55,8 +55,9 @@ class Logger:
 class FileLogger(Logger):
     log_dir = 'logs'
 
-    def __init__(self, clock, level=L_INFO):
+    def __init__(self, clock, level=L_INFO, prefix='log'):
         super().__init__(clock, level)
+        self._log_file_prefix = prefix
         self._create_log_file()
 
     def _create_log_file(self):
@@ -67,16 +68,15 @@ class FileLogger(Logger):
             pass
         # Simplified timestamp using epoch seconds
         timestamp = self.clock.time_since_epoch()
-        self.log_file_date = utils.timestamp_to_date(timestamp)
-        self.log_file = FileLogger.log_dir + "/log_" + self.log_file_date + ".txt"
+        self._log_file_date = utils.timestamp_to_date(timestamp)
+        self._log_file = FileLogger.log_dir + "/" + self._log_file_prefix + "_" + self._log_file_date + ".txt"
     
  
     def _record_log_message(self, message):
         curr_date = utils.timestamp_to_date(self.clock.time_since_epoch())
-        if curr_date != self.log_file_date:
-            FileLogger.clear_old_logs(self.clock)
+        if curr_date != self._log_file_date:
             self._create_log_file()
-        with open(self.log_file, 'a') as f:
+        with open(self._log_file, 'a') as f:
                 f.write(message + '\n')
     
   
@@ -92,8 +92,7 @@ class FileLogger(Logger):
                 if (clock.time_since_epoch() - file_timestamp) > (days * 24 * 3600):
                     os.remove(file_path)
             except ValueError:
-                # Filename does not contain a valid timestamp; ignore
-                pass
+                print(f'Filename {filename} does not contain a valid timestamp; ignore')
 
 
 class MqttLogger(Logger): 

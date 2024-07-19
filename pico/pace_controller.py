@@ -1,7 +1,7 @@
 from hardware_config import HardwareConfig
 from logger import ConsoleLogger
 
-_logger = None
+_logger = None 
 
 def ms(milliseconds):
     return int(milliseconds)
@@ -122,7 +122,6 @@ class TaskQueue:
         t_next_ms, priority, task = self._task_queue.get()
         if t_next_ms > t: 
             self._clock.sleep_ms(t_next_ms - t)
-        _logger.debug(f"TaskQueue#cycle {t_next_ms/1000:.3f}")
         task.run()
         if task.repeat():
             t = self._clock.ticks_ms()
@@ -143,7 +142,7 @@ class PaceController():
     PRIORITY_LAGOON_STIRRER = 6
 
     def __init__(self, clock, thread, logger=None):
-        global _logger 
+        global _logger
         _logger = logger if logger else ConsoleLogger(clock)
         self._thread = thread
        
@@ -154,6 +153,8 @@ class PaceController():
         self._state_time = None
         self._clock = clock
         self._current_state = None
+        self._background_thread_running = False
+        self.run_error = False
  
     def init(self, hardware, hardware_config, experiment_config):
         self._experiment_id = experiment_config['experiment_id']
@@ -230,7 +231,7 @@ class PaceController():
                 self._task_queue.cycle()
             except Exception as ex: 
                 _logger.exception('PaceController: Error in task queue cycle', ex)
-                # sys.exit() #TODO: recover
+                self.run_error = True
 
         _logger.info('PaceController: stopping the controller')
         self._task_queue.clear()
@@ -255,8 +256,8 @@ class PaceController():
         if btn_left == 0 and btn_right == 0:
             _logger.info('Restarting the motors')
             # Pressing two buttons simultaneously will re-start the stirrers
-            self._inc_stirrer_ctl.restart_motor(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
-            self._lagoon_stirrer_ctl.restart_motor(self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
+            self._inc_stirrer_ctl.__bg__restart_motor(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
+            self._lagoon_stirrer_ctl.__bg__restart_motor(self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
         elif btn_left == 0: 
             self._handle_button_left()
         elif btn_right == 0:
@@ -306,25 +307,25 @@ class ODController():
         self._medium_pump = hardware.pump_medium_to_incubator
         self._waste_pump = hardware.pump_incubator_to_waste
         self._target_od = experiment_config['target_od']
-        self._last_ods = [None for _ in range(filter_window_size)]
+        self._last_ods = [-1 for _ in range(filter_window_size)]
         self._filter_deviation_th = filter_deviation_th
-        self._current_od = None 
+        self._current_od = -1 
         self._measurement_counter = 0 
         self._total_dilution = 0
 
     def start(self, task_queue: TaskQueue, priority):
-        task_queue.repeat(ODController.OD_UPDATE_INTERVAL, self.maintain_od, task_queue, priority, priority=priority)
+        task_queue.repeat(ODController.OD_UPDATE_INTERVAL, self.__bg__maintain_od, task_queue, priority, priority=priority)
 
-    def maintain_od(self, task_queue: TaskQueue, priority):
+    def __bg__maintain_od(self, task_queue: TaskQueue, priority):
         _logger.debug('ODController#maintain_od')
         self._led.on()
-        task_queue.put(ODController.TIME_OD_DELAY, self._read_od, priority=priority)
+        task_queue.put(ODController.TIME_OD_DELAY, self.__bg__read_od, priority=priority)
         task_queue.put(ODController.TIME_LED_ON, self._led.off, priority=priority)
         task_queue.put(ODController.TIME_MEDIUM_PUMP_ON, self._medium_pump.off, priority=priority)
         task_queue.put(ODController.TIME_WASTE_PUMP_ON, self._waste_pump.off, priority=priority)
         
 
-    def _read_od(self):
+    def __bg__read_od(self):
         od = self._od_sensor.read_od()
         self._last_ods[self._measurement_counter % len(self._last_ods)] = od
         self._measurement_counter += 1
@@ -369,9 +370,9 @@ class TempController:
         self._current_temp = None 
 
     def start(self, task_queue: TaskQueue, priority):
-        task_queue.repeat(TempController.TEMP_UPDATE_INTERVAL, self.maintain_temp, priority=priority)
+        task_queue.repeat(TempController.TEMP_UPDATE_INTERVAL, self.__bg__maintain_temp, priority=priority)
 
-    def maintain_temp(self):
+    def __bg__maintain_temp(self):
         temp = self._temp_sensor.read()
         self._current_temp = temp
         _logger.debug('TempController: measured temp', temp)
@@ -396,9 +397,9 @@ class StirrerController:
         self._top_speed_frac = top_speed_frac
 
     def start(self, task_queue: TaskQueue, priority):
-        task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self.restart_motor, task_queue, priority, priority=priority)
+        task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self.__bg__restart_motor, task_queue, priority, priority=priority)
 
-    def restart_motor(self, task_queue: TaskQueue, priority): 
+    def __bg__restart_motor(self, task_queue: TaskQueue, priority): 
         
         for speed_step in range(StirrerController.NUM_STEPS):
             speed_frac = self._top_speed_frac * speed_step / (StirrerController.NUM_STEPS - 1)
@@ -453,18 +454,18 @@ class LagoonFlowController():
     def start(self, task_queue, priority):
         if self._bact_burst_interval > 0: 
             task_queue.repeat(self._bact_burst_interval, 
-                          self._maintain_bact_flow, task_queue, priority, priority=priority)
+                          self.__bg__maintain_bact_flow, task_queue, priority, priority=priority)
         if self._ara_conc > 0: 
             task_queue.repeat(self._ara_step_interval, 
-                            self._maintain_ara_flow, task_queue, priority, priority=priority+0.5)
+                            self.__bg__maintain_ara_flow, task_queue, priority, priority=priority+0.5)
         
-    def _maintain_bact_flow(self, task_queue: TaskQueue, priority): 
+    def __bg__maintain_bact_flow(self, task_queue: TaskQueue, priority): 
         self._bacteria_pump.on()
         self._waste_pump.on()
         task_queue.put(self._bact_burst_duration, self._bacteria_pump.off, priority=priority)
         task_queue.put(self._waste_burst_duration, self._waste_pump.off, priority=priority)
         
-    def _maintain_ara_flow(self, task_queue: TaskQueue, priority): 
+    def __bg__maintain_ara_flow(self, task_queue: TaskQueue, priority): 
         self._ara_stepper.step()
 
     def flow_rate(self): 
