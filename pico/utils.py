@@ -1,6 +1,8 @@
 import os 
 import time 
 import sys
+import json
+
 
 def timestamp_to_date(timestamp):
     localtime_tuple = time.localtime(timestamp)
@@ -46,4 +48,7 @@ def rm_tree(path):
         else: 
             os.remove(file_path)
     os.rmdir(path)
-    
+
+def load_json(path):
+    with open(path) as f:
+        return json.load(f)
