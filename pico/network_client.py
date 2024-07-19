@@ -1,11 +1,24 @@
 import network
 from libs.umqtt.simple import MQTTClient
 from time import sleep
+import ntptime
+
 
 STATE_UNKNOWN = 0
 STATE_WIFI_NOT_CONNECTED = 1
 STATE_WIFI_CONNECTING = 2
 STATE_WIFI_CONNECTED = 3
+
+
+def sync_time(clock, network_config, logger):
+    ntptime.host = network_config['mqtt_host']
+    logger.info('sync_time: Requesting NTP time... Time before request:', clock.localtime())
+
+    try:
+        ntptime.settime()
+        logger.info('sync_time: Time after request:', clock.localtime())
+    except Exception as ex:
+        logger.exception('Could not synchronize time', ex)
 
 
 class WiFiClient:
@@ -68,7 +81,7 @@ class MqttClient:
             for callback in self._subscribers[topic]:
                 callback(msg)
 
-    def request_mqtt_connection(self, force_topic_resubscribe=False):
+    def request_mqtt_connection(self, force_topic_resubscribe=False) -> bool:
         if self._wifi._state != STATE_WIFI_CONNECTED:
             self._logger.critical("Mqtt Client: cannot connect to MQTT broker. WiFi not ready ...")
             return False
@@ -85,7 +98,7 @@ class MqttClient:
         
         if not force_topic_resubscribe and is_restored_session:
             self._logger.info('Skipping topic resubscription.')
-            return 
+            return True
         
         self._logger.info('Mqtt Client: Subscribing to topics ...')
         for topic in self._subscribers.keys():
@@ -104,8 +117,16 @@ class MqttClient:
         self._mqtt_client.publish(topic, msg, qos=qos)
         return True
          
-    def receive(self): 
+    def receive(self) -> bool: 
         if not self._mqtt_connected:
             self._logger.critical('Mqtt Client: cannot receive messages, MQTT not connected.')
         self._mqtt_client.check_msg()
         return True
+    
+    def disconnect(self):
+        if not self._mqtt_connected:
+            pass 
+        try: 
+            self._mqtt_client.disconnect()
+        except OSError as e:
+            self._logger.exception('Mqtt Client: Error disconnecting from broker', e)
