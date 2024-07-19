@@ -33,7 +33,7 @@ def calibrate_inc_stirrer(top_speed_frac):
     print(f'Restarting incubator stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
     ctl = pace_controller.StirrerController(hw.stirrer_inc, top_speed_frac)
-    ctl.restart_motor(q, priority=1)
+    ctl.__bg__restart_motor(q, priority=1)
     i = 0
     while not q.empty():
         print(f'Starting the stirrer {i}...')
@@ -44,7 +44,7 @@ def calibrate_lagoon_stirrer(top_speed_frac):
     print(f'Restarting lagoon stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
     ctl = pace_controller.StirrerController(hw.stirrer_lagoon, top_speed_frac)
-    ctl.restart_motor(q, priority=1)
+    ctl.__bg__restart_motor(q, priority=1)
     i = 0
     while not q.empty():
         print(f'Starting the stirrer {i}...')
@@ -79,8 +79,8 @@ def calibrate_temp(target_temp):
             print(f'Measurement time {i*adjust_temp_interval_s}s.')
             print(f'T(inc) =\t{mean_inc:.2f} (std={std_inc:.2f})\tT(lagoon) = \t{mean_lagoon:.2f} (std={std_lagoon:.2f})')
             print(f'T_raw(inc) =\t{mean_raw_inc:.2f} (std={std_raw_inc:.2f})\tT_raw(lagoon) = \t{mean_raw_lagoon:.2f} (std={std_raw_lagoon:.2f})')
-        inc_ctl.maintain_temp()
-        lagoon_ctl.maintain_temp()
+        inc_ctl.__bg__maintain_temp()
+        lagoon_ctl.__bg__maintain_temp()
         time.sleep(adjust_temp_interval_s)
         i += 1
 
@@ -100,7 +100,7 @@ def calibrate_od(num_probes=5):
             time.sleep(1)
 
         # Start the stirrer
-        stirrer.restart_motor(task_queue=q, priority=1)
+        stirrer.__bg__restart_motor(task_queue=q, priority=1)
         while not q.empty():
             q.cycle()
             print('Starting the motor...')

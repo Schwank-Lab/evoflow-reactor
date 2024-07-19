@@ -94,9 +94,6 @@ def run():
         if clock.ticks_ms() - last_log_cleanup > LOG_CLEANUP_EVERY_MS:
             logger.FileLogger.clear_old_logs(clock, days=2)
             last_log_cleanup = clock.ticks_ms()
-        
-        if clock.ticks_ms() - last_log_cleanup > 1000*10:
-            raise Exception('fake exception to restart the device')
             
         time.sleep(1)
 
