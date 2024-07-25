@@ -133,6 +133,27 @@ class Pump:
         else:
             self._pin.value(0)
 
+
+class TMC2208Stepper: 
+
+    def __init__(self, step_pin, dir_pin): 
+        self._step_pin = step_pin 
+        dir_pin.value(1)
+        #self._motor = PWM(step_pin)
+        #self._motor.freq(100) 
+
+    def on(self): 
+        for _ in range(1000):
+            self._step_pin.on()
+            time.sleep_ms(1)
+            self._step_pin.off()
+            time.sleep_ms(1)
+        #self._motor.duty_u16(65_535 // 2)
+
+    def off(self):
+        pass #self._motor.duty_u16(0)
+
+
 class StepperMotor:
     
     FULL_STEP_SEQUENCE = [ ## this are 4 steps
@@ -168,20 +189,20 @@ class StepperMotor:
 class Hardware:
 
     def __init__(self, config: HardwareConfig): 
-        self.inc_led = Pin(10, Pin.OUT, value=0)
+        self.inc_led = Pin(2, Pin.OUT, value=0)
         self.inc_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)), config.incubator_od_convert)
-        self.temp_sensor_inc = TempSensor(Pin(16, Pin.IN), config.incubator_temp_convert)
-        self.heater_inc = Pin(9, Pin.OUT, value=0)
-        self.stirrer_inc = Stirrer(Pin(21, Pin.OUT))
+        self.temp_sensor_inc = TempSensor(Pin(22, Pin.IN), config.incubator_temp_convert)
+        self.heater_inc = Pin(7, Pin.OUT, value=0)
+        self.stirrer_inc = Stirrer(Pin(0, Pin.OUT))
 
-        self.temp_sensor_lagoon = TempSensor(Pin(17, Pin.IN), config.lagoon_temp_convert)
-        self.heater_lagoon = Pin(8, Pin.OUT, value=0)
-        self.stirrer_lagoon = Stirrer(Pin(20, Pin.OUT))
+        self.temp_sensor_lagoon = TempSensor(Pin(26, Pin.IN), config.lagoon_temp_convert)
+        self.heater_lagoon = Pin(14, Pin.OUT, value=0)
+        self.stirrer_lagoon = Stirrer(Pin(1, Pin.OUT))
 
-        self.pump_medium_to_incubator = Pump(Pin(7, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
-        self.pump_incubator_to_waste = Pump(Pin(6, Pin.OUT, value=0), mode=Pump.MODE_PIN)
-        self.pump_incubator_to_lagoon = Pump(Pin(26, Pin.OUT, value=0), speed=config.pump_incubator_to_lagoon_speed_frac)
-        self.pump_lagoon_to_waste = Pump(Pin(22, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
+        self.pump_medium_to_incubator = Pump(Pin(17, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
+        self.pump_incubator_to_waste = Pump(Pin(18, Pin.OUT, value=0), mode=Pump.MODE_PIN)
+        self.pump_incubator_to_lagoon = TMC2208Stepper(Pin(8, Pin.OUT, value=0), Pin(9, Pin.OUT, value=0))
+        self.pump_lagoon_to_waste = Pump(Pin(19, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 
 
         self.stepper_arabinose_to_lagoon = StepperMotor([
@@ -191,8 +212,8 @@ class Hardware:
                                             Pin(15, Pin.OUT) #IN4
                                         ], forward_direction=config.stepper_direction)
         
-        self.button_left = Pin(18, Pin.IN, Pin.PULL_UP) 
-        self.button_right = Pin(19, Pin.IN, Pin.PULL_UP)
+        self.button_left = Pin(4, Pin.IN, Pin.PULL_UP) 
+        self.button_right = Pin(5, Pin.IN, Pin.PULL_UP)
 
 
 
