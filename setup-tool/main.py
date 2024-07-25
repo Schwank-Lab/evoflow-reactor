@@ -11,12 +11,6 @@ import argparse
 import glob
 
 
-def ensure_tmp_dir():
-    tmp_dir = tempfile.gettempdir()
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
-    return tmp_dir
-
 def check_reactor_name_exists_in_db(reactor_name):
     with Session(idec_engine()) as session:
         db_reactor_name = session.execute(select(Reactor.name)
@@ -62,14 +56,6 @@ def generate_commands(network_config: Path, port: str):
     ampy_commands = [f"ampy -p {port} {cmd}" for cmd in commands]
     sh_commands = [f'echo "{cmd}"; {cmd}' for cmd in ampy_commands]
     return '\n'.join(sh_commands)
-    # ampy -p {port} put pico/*.py /pyboard
-
-def execute_commands(command_file_path):
-    try:
-        subprocess.run(['poetry', 'run', 'rshell', '-f', command_file_path], check=True)
-        print("Commands executed successfully on Pico W")
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to execute commands on Pico W: {e}")
 
 
 if __name__ == '__main__':
@@ -93,8 +79,7 @@ if __name__ == '__main__':
         port = args.pico_port
 
     network_config = generate_network_config(reactor_id=new_reactor_id) 
-    tmp_dir = ensure_tmp_dir()
-
+   
     with open('/tmp/network_config.json', 'w') as nw_file:
         json.dump(generate_network_config(new_reactor_id), nw_file)
         nw_path = Path(nw_file.name)
