@@ -161,12 +161,14 @@ class PaceController():
         self._hardware = hardware
         self._inc_temp_ctl = TempController(hardware.temp_sensor_inc, 
                 hardware.heater_inc, target_temp=37) # TODO: move target temp to the experiment config
-        self._inc_stirrer_ctl = StirrerController(hardware.stirrer_inc, hardware_config.incubator_stirrer_top_speed_frac)
-        self._inc_od_ctl = ODController(hardware, experiment_config)
+        self._inc_stirrer_ctl = StirrerController(hardware.stirrer_inc, hardware_config.incubator_stirrer_top_speed_frac, 
+                                                  self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
+        self._inc_od_ctl = ODController(hardware, self._inc_stirrer_ctl, experiment_config)
         
         self._lagoon_temp_ctl = TempController(hardware.temp_sensor_lagoon,
                 hardware.heater_lagoon, target_temp=35)  # TODO: move target temp to the experiment config
-        self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, hardware_config.lagoon_stirrer_top_speed_frac)
+        self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, hardware_config.lagoon_stirrer_top_speed_frac,
+                                                     self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
         self._lagoon_flow_ctl = LagoonFlowController(hardware, hardware_config, experiment_config) 
 
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
@@ -184,10 +186,10 @@ class PaceController():
         assert self._is_initialzed
         self._is_running = True 
         self._inc_temp_ctl.start(self._task_queue, priority=10)
-        self._inc_stirrer_ctl.start(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
+        self._inc_stirrer_ctl.start()
         self._inc_od_ctl.start(self._task_queue, priority=8)
         self._lagoon_temp_ctl.start(self._task_queue, priority=7)
-        self._lagoon_stirrer_ctl.start(self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
+        self._lagoon_stirrer_ctl.start()
         self._lagoon_flow_ctl.start(self._task_queue, priority=5)
         self._task_queue.repeat(PaceController.RECORD_STATE_EVERY, self._record_state, priority=1)
         self._task_queue.repeat(PaceController.CHECK_STEPPER_BUTTONS_INTERVAL, 
@@ -256,8 +258,8 @@ class PaceController():
         if btn_left == 0 and btn_right == 0:
             _logger.info('Restarting the motors')
             # Pressing two buttons simultaneously will re-start the stirrers
-            self._inc_stirrer_ctl.__bg__restart_motor(self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
-            self._lagoon_stirrer_ctl.__bg__restart_motor(self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
+            self._inc_stirrer_ctl.__bg__restart_motor()
+            self._lagoon_stirrer_ctl.__bg__restart_motor()
         elif btn_left == 0: 
             self._handle_button_left()
         elif btn_right == 0:
@@ -300,8 +302,10 @@ class ODController():
     TIME_OD_DELAY = ms(50)
     TIME_MEDIUM_PUMP_ON = s_to_ms(2)
     TIME_WASTE_PUMP_ON = s_to_ms(2.2)
+    NUM_OD_OUTLIERS_FOR_RESTART = 3 
 
-    def __init__(self, hardware, experiment_config, filter_window_size=5, filter_deviation_th=0.3):
+    def __init__(self, hardware, stirrer_ctrl, experiment_config, filter_window_size=5, filter_deviation_th=0.3):
+        self._strirrer_ctrl = stirrer_ctrl
         self._led = hardware.inc_led
         self._od_sensor = hardware.inc_od_sensor
         self._medium_pump = hardware.pump_medium_to_incubator
@@ -312,6 +316,7 @@ class ODController():
         self._current_od = -1 
         self._measurement_counter = 0 
         self._total_dilution = 0
+        self._num_od_outliers = 0
 
     def start(self, task_queue: TaskQueue, priority):
         task_queue.repeat(ODController.OD_UPDATE_INTERVAL, self.__bg__maintain_od, task_queue, priority, priority=priority)
@@ -338,7 +343,13 @@ class ODController():
             self._current_od = od
         else: 
             _logger.info(f'ODController: measured OD = {od:.2f} is an outlier, median OD = {median_od:.2f}')
-        
+            # potentially this is a problem with the motors and they need to be restarted 
+            self._num_od_outliers += 1
+            if self._num_od_outliers >= ODController.NUM_OD_OUTLIERS_FOR_RESTART:
+                _logger.info('ODController: too many outliers, restarting the motors')
+                self._strirrer_ctrl.__bg__restart_motor()
+                self._num_od_outliers = 0
+            
         _logger.debug(f'ODController: measured OD = {od:.2f}, filtered OD = {self._current_od:.2f}')
         
         if self._current_od > self._target_od:
@@ -392,24 +403,35 @@ class StirrerController:
     NUM_STEPS = 10
     STEP_DELAY = s_to_ms(1)
     
-    def __init__(self, stirrer, top_speed_frac):
+    def __init__(self, stirrer, top_speed_frac, task_queue: TaskQueue, priority):
         self._stirrer = stirrer
         self._top_speed_frac = top_speed_frac
+        self._task_queue = task_queue
+        self._priority = priority
+        self._is_starting = False
 
-    def start(self, task_queue: TaskQueue, priority):
-        task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self.__bg__restart_motor, task_queue, priority, priority=priority)
+    def start(self):
+        self._task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self.__bg__restart_motor, priority=self._priority)
 
-    def __bg__restart_motor(self, task_queue: TaskQueue, priority): 
-        
+    def __bg__restart_finished(self): 
+        self._is_starting = False
+
+    def __bg__restart_motor(self): 
+        if self._is_starting:
+            _logger.info('StirrerController: motor is already starting, dont restart')
+            return 
+        self._is_starting = True
         for speed_step in range(StirrerController.NUM_STEPS):
             speed_frac = self._top_speed_frac * speed_step / (StirrerController.NUM_STEPS - 1)
-            task_queue.put(StirrerController.STEP_DELAY*speed_step, self._stirrer.set_speed, speed_frac, priority=priority)
+            self._task_queue.put(StirrerController.STEP_DELAY*speed_step, self._stirrer.set_speed, speed_frac, priority=self._priority)
         
         # Add a speed ramp
-        task_queue.put(StirrerController.STEP_DELAY*StirrerController.NUM_STEPS, 
-                       self._stirrer.set_speed, self._top_speed_frac * 1.1, priority=priority)
-        task_queue.put(StirrerController.STEP_DELAY*(StirrerController.NUM_STEPS+1),
-                       self._stirrer.set_speed, self._top_speed_frac, priority=priority)
+        self._task_queue.put(StirrerController.STEP_DELAY*StirrerController.NUM_STEPS, 
+                       self._stirrer.set_speed, self._top_speed_frac * 1.1, priority=self._priority)
+        self._task_queue.put(StirrerController.STEP_DELAY*(StirrerController.NUM_STEPS+1),
+                       self._stirrer.set_speed, self._top_speed_frac, priority=self._priority)
+        self._task_queue.put(StirrerController.STEP_DELAY*(StirrerController.NUM_STEPS+2),
+                       self.__bg__restart_finished, priority=self._priority)
 
 class LagoonFlowController():
     
