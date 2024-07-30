@@ -59,12 +59,14 @@ def test_stepper():
         hw.stepper_arabinose_to_lagoon.step_reverse()
 
 def test_stepper_rotation(rotation_deg):
-    num_revolutions = rotation_deg / 360 
+    stepper = hw.stepper_arabinose_to_lagoon
+    step = stepper.step_forward if rotation_deg > 0 else stepper.step_reverse
+    num_revolutions = abs(rotation_deg) / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION * num_revolutions)
     report_every = 10
     print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps')
     for i in range(num_steps):
-        hw.stepper_arabinose_to_lagoon.step_forward()
+        step()
         if i % report_every == 0:
             print(f'{i}/{num_steps} steps')
     

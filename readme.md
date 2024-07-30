@@ -76,6 +76,18 @@ The only pump we care about is the turbidostat -> lagoon pump. To calibrate it, 
 3. Run `ampy -p $PICO_PORT run tmp/calibrate_inc_stirrer.py`
 4. Observe the vortex in the probe.
 
+#### Stepper calibration 
+
+We need to calibrate the direction of the stepper motor. 
+
+1. Run `python calibration/calibration_stepper.py 1`
+2. Run `ampy -p $PICO_PORT run tmp/calibrate_stepper.py`
+3. Observe the rotation of the stepper shaft, it should be turning counter-clockwise, when looked from the direction of the motor.  If that's not the case, execute two more commands: 
+4. Run `python calibration/calibration_stepper.py -1`
+5. Run `ampy -p $PICO_PORT run tmp/calibrate_stepper.py`
+6. Now the shaft should be turning in the correct direction.
+
+
 
 #### Run calibration 
 

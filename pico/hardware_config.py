@@ -24,7 +24,7 @@ class HardwareConfig:
         self.pump_incubator_to_lagoon_burst_duration_s = config['pump_incubator_to_lagoon_burst_duration_s']
         self.pump_lagoon_to_waste_burst_duration_s = config['pump_lagoon_to_waste_burst_duration_s']
         self.induction_ml_per_step = config['induction_ml_per_step']
-        self.seconds_since_epoch_offset = config['seconds_since_epoch_offset']
+        self.stepper_direction = config['stepper_direction'] # 1 or -1
 
     
     def incubator_od_convert(self, measurement): 
@@ -52,7 +52,7 @@ def default_config() -> HardwareConfig:
         'pump_incubator_to_lagoon_burst_duration_s': 0.5,
         'pump_lagoon_to_waste_burst_duration_s': 0.6,
         'induction_ml_per_step': calculate_vol_per_step(STEPS_PER_REVOLUTION, SHAFT_LEAD_MM, SYRINGE_ML_PER_MM),
-        'seconds_since_epoch_offset': 0.0,
+        'stepper_direction': 1
     } 
     return HardwareConfig(cfg)
 

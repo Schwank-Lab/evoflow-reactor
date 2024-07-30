@@ -124,7 +124,6 @@ def calibrate_od(num_probes=5):
 
 
 def calibrate_pump_incubator_to_lagoon(target_vol): 
-
     burst_vol = hw_config.pump_incubator_to_lagoon_burst_vol_ml
     num_bursts = target_vol // burst_vol
     burst_on_s = hw_config.pump_incubator_to_lagoon_burst_duration_s
@@ -144,17 +143,19 @@ def calibrate_pump_incubator_to_lagoon(target_vol):
         hw.pump_incubator_to_lagoon.off()
 
 
-def calibrate_clock(): 
-    clk = Clock() 
-    for i in range(3, 0, -1): 
-        print(f'Note current time in {i}...')
-        time.sleep(1) 
-
-    s = clk.time_since_epoch()
-    print(f'Note seconds_sinc_epoch is {s}')
-    with open('calibration/time_calibration.txt', 'w') as f: 
-        f.write(str(s))
-        
+def calibrate_stepper(rotation_dir, rotation_deg=180): 
+    stepper = hw.stepper_arabinose_to_lagoon
+    stepper.set_direction(rotation_dir)
+    step = stepper.step_forward if rotation_deg > 0 else stepper.step_reverse
+    num_revolutions = abs(rotation_deg) / 360 
+    num_steps = int(hardware_config.STEPS_PER_REVOLUTION * num_revolutions)
+    report_every = 10
+    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps, direction {rotation_dir}')
+    for i in range(num_steps):
+        step()
+        if i % report_every == 0:
+            print(f'{i}/{num_steps} steps')
+    
 
 
         

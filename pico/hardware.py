@@ -142,17 +142,21 @@ class StepperMotor:
             [1,0,0,1] # TODO: this is very ugly.
     ]
     
-    def __init__(self, pins):
+    def __init__(self, pins, forward_direction=1):
         self._stepper = pins 
+        self.set_direction(forward_direction)
+
+    def set_direction(self, forward_direction):
+        self._step_seq = StepperMotor.FULL_STEP_SEQUENCE if forward_direction == 1 else StepperMotor.FULL_STEP_SEQUENCE[::-1]
 
     def step(self):
         self.step_forward()
 
     def step_forward(self):
-        self._step(StepperMotor.FULL_STEP_SEQUENCE)
+        self._step(self._step_seq)
 
     def step_reverse(self): 
-        self._step(StepperMotor.FULL_STEP_SEQUENCE[::-1])
+        self._step(self._step_seq[::-1])
     
     def _step(self, step_seq):
         for step in step_seq:
@@ -185,7 +189,7 @@ class Hardware:
                                             Pin(13, Pin.OUT), #IN2
                                             Pin(14, Pin.OUT), #IN3
                                             Pin(15, Pin.OUT) #IN4
-                                        ])
+                                        ], forward_direction=config.stepper_direction)
         
         self.button_left = Pin(18, Pin.IN, Pin.PULL_UP) 
         self.button_right = Pin(19, Pin.IN, Pin.PULL_UP)
