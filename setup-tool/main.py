@@ -50,9 +50,6 @@ def generate_commands(network_config: Path, port: str):
         "put pico/configs/default-reactor_state.json /state/reactor_state.json",
         "put libs /libs"
     ] 
-    # copy all python scripts. 
-    scripts = glob.glob('pico/*.py')
-    commands += [f"put {script} /{Path(script).name}" for script in scripts]
     ampy_commands = [f"ampy -p {port} {cmd}" for cmd in commands]
     sh_commands = [f'echo "{cmd}"; {cmd}' for cmd in ampy_commands]
     return '\n'.join(sh_commands)
