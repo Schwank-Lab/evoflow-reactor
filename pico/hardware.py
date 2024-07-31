@@ -136,22 +136,34 @@ class Pump:
 
 class TMC2208Stepper: 
 
-    def __init__(self, step_pin, dir_pin): 
+    MODE_PWM = 0
+    MODE_STEP = 1 
+
+    def __init__(self, step_pin, dir_pin, forward_direction=1, mode=MODE_PWM): 
+        fw_dr = 1 if forward_direction == 1 else 0
+        dir_pin.value(fw_dr)
         self._step_pin = step_pin 
-        dir_pin.value(1)
-        self._motor = PWM(step_pin)
-        self._motor.freq(100) 
+        self._mode = mode 
+        if mode == TMC2208Stepper.MODE_PWM: 
+            self._motor = PWM(step_pin)
+            self._motor.freq(1000) 
 
     def on(self): 
-        # for _ in range(1000):
-        #     self._step_pin.on()
-        #     time.sleep_ms(1)
-        #     self._step_pin.off()
-        #     time.sleep_ms(1)
+        if self._mode != TMC2208Stepper.MODE_PWM:
+            raise ValueError('Cannot turn pump on unless in PWM mode.')
         self._motor.duty_u16(65_535 // 2)
 
+    def step(self):
+        if self._mode == TMC2208Stepper.MODE_STEP:
+            raise ValueError('Cannot step pump in STEP mode.')
+        self._step_pin.on()
+        time.sleep_ms(1)
+        self._step_pin.off()
+
     def off(self):
-        pass #self._motor.duty_u16(0)
+        if self._mode != TMC2208Stepper.MODE_PWM:
+            raise ValueError('Cannot turn pump off unless in PWM mode.')
+        self._motor.duty_u16(0)
 
 
 class StepperMotor:
@@ -201,16 +213,11 @@ class Hardware:
 
         self.pump_medium_to_incubator = Pump(Pin(17, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
         self.pump_incubator_to_waste = Pump(Pin(18, Pin.OUT, value=0), mode=Pump.MODE_PIN)
-        self.pump_incubator_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
+        self.pump_incubator_to_lagoon = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), dir_pin=Pin(11, Pin.OUT, value=0))
         self.pump_lagoon_to_waste = Pump(Pin(19, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 
 
-        # self.stepper_arabinose_to_lagoon = StepperMotor([
-        #                                     Pin(12, Pin.OUT), #IN1
-        #                                     Pin(13, Pin.OUT), #IN2
-        #                                     Pin(14, Pin.OUT), #IN3
-        #                                     Pin(15, Pin.OUT) #IN4
-        #                                 ], forward_direction=config.stepper_direction)
+        self.stepper_arabinose_to_lagoon = TMC2208Stepper(step_pin=Pin(10, Pin.OUT, value=0), dir_pin=Pin(13, Pin.OUT, value=0), mode=TMC2208Stepper.MODE_STEP)
         
         self.button_left = Pin(4, Pin.IN, Pin.PULL_UP) 
         self.button_right = Pin(5, Pin.IN, Pin.PULL_UP)
