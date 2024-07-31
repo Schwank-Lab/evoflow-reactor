@@ -32,8 +32,8 @@ def stop_all():
 def calibrate_inc_stirrer(top_speed_frac):
     print(f'Restarting incubator stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
-    ctl = pace_controller.StirrerController(hw.stirrer_inc, top_speed_frac)
-    ctl.__bg__restart_motor(q, priority=1)
+    ctl = pace_controller.StirrerController(hw.stirrer_inc, top_speed_frac, q, priority=1)
+    ctl.__bg__restart_motor()
     i = 0
     while not q.empty():
         print(f'Starting the stirrer {i}...')
@@ -43,8 +43,8 @@ def calibrate_inc_stirrer(top_speed_frac):
 def calibrate_lagoon_stirrer(top_speed_frac): 
     print(f'Restarting lagoon stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
-    ctl = pace_controller.StirrerController(hw.stirrer_lagoon, top_speed_frac)
-    ctl.__bg__restart_motor(q, priority=1)
+    ctl = pace_controller.StirrerController(hw.stirrer_lagoon, top_speed_frac, q, priority=1)
+    ctl.__bg__restart_motor()
     i = 0
     while not q.empty():
         print(f'Starting the stirrer {i}...')
@@ -89,8 +89,8 @@ def calibrate_od(num_probes=5):
     measure_od_interval_s = 5
     num_measurements_per_probe = 5
     measure_od_delay_s = 5
-    stirrer = pace_controller.StirrerController(hw.stirrer_inc, hw_config.incubator_stirrer_top_speed_frac)
     q = pace_controller.TaskQueue(clk)
+    stirrer = pace_controller.StirrerController(hw.stirrer_inc, hw_config.incubator_stirrer_top_speed_frac, q, priority=1)
     measurements = [[] for _ in range(num_probes)] 
     for num_probe in range(num_probes):
         # Give user time to switch out the probe.
@@ -100,7 +100,7 @@ def calibrate_od(num_probes=5):
             time.sleep(1)
 
         # Start the stirrer
-        stirrer.__bg__restart_motor(task_queue=q, priority=1)
+        stirrer.__bg__restart_motor()
         while not q.empty():
             q.cycle()
             print('Starting the motor...')
