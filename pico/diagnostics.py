@@ -20,10 +20,10 @@ STIRRERS = [
 ]
 
 PUMPS = [
-    ('pump_medium_to_incubator', hw.pump_medium_to_incubator),
-    ('pump_incubator_to_waste', hw.pump_incubator_to_waste),
+    #('pump_medium_to_incubator', hw.pump_medium_to_incubator),
+    #('pump_incubator_to_waste', hw.pump_incubator_to_waste),
     ('pump_incubator_to_lagoon', hw.pump_incubator_to_lagoon),
-    ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste )
+    #('pump_lagoon_to_waste', hw.pump_lagoon_to_waste )
 ]
 
 HEATERS = [
