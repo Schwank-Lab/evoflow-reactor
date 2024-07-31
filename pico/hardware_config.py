@@ -1,8 +1,10 @@
 import json
 
 SYRINGE_ML_PER_MM = 30/78
+SYRINGE_LARGE_ML_PER_MM = 50 / 98
 SHAFT_LEAD_MM = 0.5 
 STEPS_PER_REVOLUTION = 2038 // 4
+STEPS_PER_REVOLUTION_BULLDOG = 200
 HAHRDWARE_CONFIG_FILE = 'configs/hardware_config.json'
 EXPERIMENT_CONFIG_FILE = 'configs/experiment_config.json'
 
@@ -51,7 +53,7 @@ def default_config() -> HardwareConfig:
         'pump_incubator_to_lagoon_burst_vol_ml': 0.165,
         'pump_incubator_to_lagoon_burst_duration_s': 0.5,
         'pump_lagoon_to_waste_burst_duration_s': 0.6,
-        'induction_ml_per_step': calculate_vol_per_step(STEPS_PER_REVOLUTION, SHAFT_LEAD_MM, SYRINGE_ML_PER_MM),
+        'induction_ml_per_step': calculate_vol_per_step(STEPS_PER_REVOLUTION_BULLDOG, SHAFT_LEAD_MM, SYRINGE_LARGE_ML_PER_MM),
         'stepper_direction': 1
     } 
     return HardwareConfig(cfg)
