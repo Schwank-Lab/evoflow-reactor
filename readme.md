@@ -94,3 +94,13 @@ We need to calibrate the direction of the stepper motor.
 1. In the jupyter notebook, click on `Run All`
 2. Run `ampy -p $PICO_PORT put experiments/$EXP_NAME/new_reactor_config.json configs/reactor_config.json`
 
+
+## Development
+
+Manually insert a new experiment to the database: 
+
+```
+INSERT INTO experiment (name, reactor_id, status, timestamp) 
+VALUES ('2024.07.30_idec_TadA', 12, 'stop', EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER);
+```
+
