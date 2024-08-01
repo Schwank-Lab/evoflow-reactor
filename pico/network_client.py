@@ -26,16 +26,22 @@ class WiFiClient:
         self._state = STATE_WIFI_NOT_CONNECTED
         self._config = config
 
-    def request_wifi_connection(self):
+    def request_wifi_connection(self, max_attempts=30):
         print("WiFi Client: Connecting ...")
         self._wlan = network.WLAN(network.STA_IF)
         self._wlan.active(True)
         self._wlan.connect(self._config['wifi_ssid'], self._config['wifi_pwd'])
         self._state = STATE_WIFI_CONNECTING
+        attempts = 0
         while self._wlan.isconnected() == False:
+            if attempts > max_attempts:
+                self._state = STATE_WIFI_NOT_CONNECTED
+                raise Exception("WiFi Client: Could not connect to WiFi")
             self._state = STATE_WIFI_CONNECTING
             print("WiFi Client: Waiting for connection")
             sleep(1)
+            attempts += 1
+
 
         print("WiFi Client: Connection Established")
         self._gateway_ip = self._wlan.ifconfig()[2]
