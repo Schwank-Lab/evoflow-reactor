@@ -4,9 +4,10 @@ from pace_controller import PaceController
 from logger import FileLogger, ConsoleLogger, MqttLogger, CompositeLogger
 import logger
 from network_client import WiFiClient, MqttClient, sync_time
-from state_recorder import MqttStateRecorder, FileStateRecorder
+from state_recorder import MqttStateRecorder, FileExpStateRecorder, FileReactorStateRecorder
 from commands import CommandsDispatcher
 import utils
+import monitor
 
 import time 
 import _thread
@@ -14,6 +15,9 @@ import json
 import sys
 import machine
 
+WATCHDOG_TIMEOUT_MS = 8 * 1000
+RUN_CYCLE_SLEEP_MS = 5 * 1000
+LOG_CLEANUP_EVERY_MS = 5 * 60 * 1000
 
 def init_hardware():
     global hardware, reactor_config
@@ -21,15 +25,17 @@ def init_hardware():
     hardware = Hardware(reactor_config)
     
 def init_logger():
-    global clock, main_logger, console_logger, pace_logger
+    global clock, main_logger, console_logger, pace_logger, system_state_logger
     clock = Clock()
     console_logger = ConsoleLogger(clock, level=logger.L_INFO)
     # TODO: fix mqtt logger before re-enabling it.
     # mqtt_logger = MqttLogger(reactor_id, mqtt_client, clock, level=logger.L_INFO) 
-    file_logger = FileLogger(clock, prefix='main')
+    main_logger = FileLogger(clock, prefix='main')
     pace_logger = FileLogger(clock, prefix='pace')
-    main_logger = CompositeLogger([console_logger, file_logger])
+    main_logger = CompositeLogger([console_logger, main_logger])
     pace_logger = CompositeLogger([console_logger, pace_logger])
+    system_state_logger = FileReactorStateRecorder(clock)
+
 
 
 def start_controller():
@@ -45,11 +51,11 @@ def start_controller():
     if reactor_state['status'] == 'running':
         controller.start()
     
-    file_state_recorder = FileStateRecorder(clock, experiment_config['experiment_id'], record_every_s = 5*60)
+    file_state_recorder = FileExpStateRecorder(clock, experiment_config['experiment_id'], record_every_s = 5*60)
     
         
 def connect_to_network():
-    global mqtt_client, mqtt_state_recorder, commads_dispatcher
+    global mqtt_client, mqtt_exp_state_recorder, mqtt_reactor_state_recorder, commads_dispatcher
 
     network_config = utils.load_json('configs/network_config.json')
 
@@ -61,7 +67,8 @@ def connect_to_network():
     mqtt_client.request_mqtt_connection(force_topic_resubscribe=True)
 
     reactor_id = network_config['reactor_id']
-    mqtt_state_recorder = MqttStateRecorder(reactor_id, mqtt_client, main_logger)
+    mqtt_exp_state_recorder = MqttStateRecorder(reactor_id, mqtt_client, main_logger, MqttStateRecorder.EXP_TOPIC_STATE)
+    mqtt_reactor_state_recorder = MqttStateRecorder(reactor_id, mqtt_client, main_logger, MqttStateRecorder.REACTOR_TOPIC_STATE)
     commads_dispatcher = CommandsDispatcher(reactor_id, controller, main_logger)
     mqtt_client.add_subscriber('commands', commads_dispatcher._process_commands) # TODO: refactor
     
@@ -75,15 +82,20 @@ def receive_mqtt_commands():
 
 
 def run():
-     LOG_CLEANUP_EVERY_MS = 1000*60*5
      last_log_cleanup = clock.ticks_ms()
      while True:
+        wdt.feed()
+        system_state = monitor.current_state()
+        console_logger.info(json.dumps(system_state))
+        if network_connected: 
+            mqtt_reactor_state_recorder.record(system_state)
+            
         if controller.is_running():
-            reactor_state = controller.current_state()
-            file_state_recorder.record(reactor_state)
-            console_logger.info(json.dumps(reactor_state))
+            exp_state = controller.current_state()
+            file_state_recorder.record(exp_state)
+            console_logger.info(json.dumps(exp_state))
             if network_connected: 
-                mqtt_state_recorder.record(reactor_state)
+                mqtt_exp_state_recorder.record(exp_state)
         
         if controller.run_error:
             main_logger.critical('[MAIN] Detected controller error, aborting the run')
@@ -95,7 +107,7 @@ def run():
             logger.FileLogger.clear_old_logs(clock, days=2)
             last_log_cleanup = clock.ticks_ms()
             
-        time.sleep(1)
+        time.sleep(RUN_CYCLE_SLEEP_MS)
 
 
 try: 
@@ -121,8 +133,10 @@ try:
     main_logger.info('[MAIN] Network connected')
 except Exception as e:
     main_logger.exception('[MAIN] Error connecting to network', e)
-   
-try: 
+
+wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT_MS)
+
+try:
    run()
    restart = True # run aborted, means that controller has crashed in the background.
 except KeyboardInterrupt:
