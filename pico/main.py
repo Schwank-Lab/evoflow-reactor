@@ -14,9 +14,10 @@ import _thread
 import json
 import sys
 import machine
+import gc 
 
 WATCHDOG_TIMEOUT_MS = 8 * 1000
-RUN_CYCLE_SLEEP_MS = 5 * 1000
+RUN_CYCLE_SLEEP_MS = 3
 LOG_CLEANUP_EVERY_MS = 5 * 60 * 1000
 
 def init_hardware():
@@ -106,7 +107,8 @@ def run():
         if clock.ticks_ms() - last_log_cleanup > LOG_CLEANUP_EVERY_MS:
             logger.FileLogger.clear_old_logs(clock, days=2)
             last_log_cleanup = clock.ticks_ms()
-            
+        
+        gc.collect()
         time.sleep(RUN_CYCLE_SLEEP_MS)
 
 
@@ -151,3 +153,4 @@ finally:
     
 if restart:
     machine.reset()
+
