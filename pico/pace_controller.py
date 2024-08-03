@@ -155,6 +155,7 @@ class PaceController():
         self._current_state = None
         self._background_thread_running = False
         self.run_error = False
+        self.is_alive = False
  
     def init(self, hardware, hardware_config, experiment_config):
         self._experiment_id = experiment_config['experiment_id']
@@ -231,6 +232,7 @@ class PaceController():
         while not self._task_queue.empty() and (self ._is_running or self._is_resetting_stepper):
             try: 
                 self._task_queue.cycle()
+                self.is_alive = True
             except Exception as ex: 
                 _logger.exception('PaceController: Error in task queue cycle', ex)
                 self.run_error = True
@@ -260,10 +262,10 @@ class PaceController():
             # Pressing two buttons simultaneously will re-start the stirrers
             self._inc_stirrer_ctl.__bg__restart_motor()
             self._lagoon_stirrer_ctl.__bg__restart_motor()
-        elif btn_left == 0: 
-            self._handle_button_left()
-        elif btn_right == 0:
-            self._handle_button_right()
+        # elif btn_left == 0:  TODO: there should be a better way to do it.
+        #     self._handle_button_left()
+        # elif btn_right == 0:
+        #     self._handle_button_right()
             
             
     def _handle_button_left(self):

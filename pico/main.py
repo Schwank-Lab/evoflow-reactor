@@ -97,7 +97,11 @@ def run():
             console_logger.info(json.dumps(exp_state))
             if network_connected: 
                 mqtt_exp_state_recorder.record(exp_state)
-        
+        if not controller.is_alive:
+            main_logger.critical('[MAIN] Controller thread has died, aborting the run')
+            return
+        else:
+            controller.is_alive = False # set alive flag to false and let controller reset it.
         if controller.run_error:
             main_logger.critical('[MAIN] Detected controller error, aborting the run')
             return  
@@ -141,6 +145,7 @@ wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT_MS)
 try:
    run()
    restart = True # run aborted, means that controller has crashed in the background.
+   main_logger.critical('[MAIN] Problem with controller detected, restarting pico W...')
 except KeyboardInterrupt:
     print('Aborting the run...')
     restart = False
