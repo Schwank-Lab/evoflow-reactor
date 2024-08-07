@@ -29,7 +29,7 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 2. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_stirrers.py`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
 3. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_heaters.py`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
 4. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_od.py`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-5. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_stepper.py`. You should observe stepper shaft rotating.
+5. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_stepper.py 180`, where 180 is the number of degrees you want the stepper to rotate. Then run `ampy -p $PICO_PORT run tmp/diagnostics_stepper.py`. You should observe stepper shaft rotating.
 
 ### Reactor calibration 
 
