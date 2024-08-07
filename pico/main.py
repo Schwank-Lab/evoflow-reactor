@@ -39,7 +39,7 @@ def init_logger():
 
 
 
-def start_controller():
+def init_controller():
     global controller, file_state_recorder
     thread = lambda fn, *args: _thread.start_new_thread(fn, args)
     controller = PaceController(clock, thread, logger=pace_logger)
@@ -97,11 +97,11 @@ def run():
             console_logger.info(json.dumps(exp_state))
             if network_connected: 
                 mqtt_exp_state_recorder.record(exp_state)
-        if not controller.is_alive:
-            main_logger.critical('[MAIN] Controller thread has died, aborting the run')
-            return
-        else:
-            controller.is_alive = False # set alive flag to false and let controller reset it.
+            if not controller.is_alive:
+                main_logger.critical('[MAIN] Controller thread has died, aborting the run')
+                return
+            else:
+                controller.is_alive = False # set alive flag to false and let controller reset it.
         if controller.run_error:
             main_logger.critical('[MAIN] Detected controller error, aborting the run')
             return  
@@ -126,10 +126,10 @@ except Exception as e:
 init_logger() # should never fail.
 
 try: 
-    start_controller()
-    main_logger.info('[MAIN] controller started.')
+    init_controller()
+    main_logger.info('[MAIN] controller initialized.')
 except Exception as e:
-    main_logger.exception('[MAIN] Error starting controller', e)
+    main_logger.exception('[MAIN] Error initializing controller', e)
     machine.reset()
 
 try:
@@ -158,4 +158,5 @@ finally:
     
 if restart:
     machine.reset()
+
 
