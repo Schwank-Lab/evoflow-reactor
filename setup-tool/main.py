@@ -22,7 +22,7 @@ def create_reactor_db_entry(reactor_name):
     if check_reactor_name_exists_in_db(reactor_name):
         raise RuntimeError("This name already exists in db! Change it and try again")
 
-    reactor = Reactor(name=reactor_name, network_id='0.0.0.0', experiments=[])
+    reactor = Reactor(name=reactor_name, network_id='0.0.0.0', reactor_config=[], experiment=[])
     with Session(idec_engine()) as session: 
         session.add(reactor)
         session.commit()
