@@ -20,10 +20,10 @@ STIRRERS = [
 ]
 
 PUMPS = [
-    #('pump_medium_to_incubator', hw.pump_medium_to_incubator),
-    #('pump_incubator_to_waste', hw.pump_incubator_to_waste),
+    ('pump_medium_to_incubator', hw.pump_medium_to_incubator),
+    ('pump_incubator_to_waste', hw.pump_incubator_to_waste),
     ('pump_incubator_to_lagoon', hw.pump_incubator_to_lagoon),
-    #('pump_lagoon_to_waste', hw.pump_lagoon_to_waste )
+    ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste )
 ]
 
 HEATERS = [
@@ -56,17 +56,19 @@ def test_stepper():
     t_start = time.time()
     while (time.time() - t_start) < STEPPER_ON_DURATION_SEC:
         # TODO: add progress update.
-        hw.stepper_arabinose_to_lagoon.step_reverse()
+        hw.stepper_arabinose_to_lagoon.step()
 
 def test_stepper_rotation(rotation_deg):
     stepper = hw.stepper_arabinose_to_lagoon
-    step = stepper.step_forward if rotation_deg > 0 else stepper.step_reverse
+    if rotation_deg < 0: 
+        stepper.set_direction(-1) 
+        rotation_deg = -rotation_deg
     num_revolutions = abs(rotation_deg) / 360 
-    num_steps = int(hardware_config.STEPS_PER_REVOLUTION * num_revolutions)
+    num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
     report_every = 10
     print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps')
     for i in range(num_steps):
-        step()
+        stepper.step()
         if i % report_every == 0:
             print(f'{i}/{num_steps} steps')
     
