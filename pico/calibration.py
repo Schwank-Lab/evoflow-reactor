@@ -69,8 +69,8 @@ def calibrate_temp(target_temp):
     while True:
         inc_temps[i % num_temps_to_avg] = inc_ctl.current_temp()
         lagoon_temps[i % num_temps_to_avg] = lagoon_ctl.current_temp()
-        inc_temps_raw[i % num_temps_to_avg] = inc_ctl._temp_sensor.read_raw()
-        lagoon_temps_raw[i % num_temps_to_avg] = lagoon_ctl._temp_sensor.read_raw()
+        inc_temps_raw[i % num_temps_to_avg] = inc_ctl.current_temp_raw()
+        lagoon_temps_raw[i % num_temps_to_avg] = lagoon_ctl.current_temp_raw()
         if i > 0  and i % report_temp_every == 0:
             mean_inc, std_inc = compute_stats(inc_temps)
             mean_lagoon, std_lagoon = compute_stats(lagoon_temps) 
@@ -144,15 +144,15 @@ def calibrate_pump_incubator_to_lagoon(target_vol):
 
 
 def calibrate_stepper(rotation_dir, rotation_deg=180): 
+    assert rotation_deg >= 0
     stepper = hw.stepper_arabinose_to_lagoon
     stepper.set_direction(rotation_dir)
-    step = stepper.step_forward if rotation_deg > 0 else stepper.step_reverse
     num_revolutions = abs(rotation_deg) / 360 
-    num_steps = int(hardware_config.STEPS_PER_REVOLUTION * num_revolutions)
+    num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
     report_every = 10
     print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps, direction {rotation_dir}')
     for i in range(num_steps):
-        step()
+        stepper.step()
         if i % report_every == 0:
             print(f'{i}/{num_steps} steps')
     
