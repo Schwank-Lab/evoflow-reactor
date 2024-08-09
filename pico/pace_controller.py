@@ -380,13 +380,16 @@ class TempController:
         self._temp_sensor = temp_sensor
         self._heater = heater
         self._target_temp = target_temp
-        self._current_temp = None 
+        self._current_temp = -1.0
+        self._current_temp_raw = -1.0 
 
     def start(self, task_queue: TaskQueue, priority):
         task_queue.repeat(TempController.TEMP_UPDATE_INTERVAL, self.__bg__maintain_temp, priority=priority)
 
     def __bg__maintain_temp(self):
-        temp = self._temp_sensor.read()
+        temp_raw = self._temp_sensor.read_raw()
+        temp = self._temp_sensor.convert_raw(temp_raw)
+        self._current_temp_raw = temp_raw
         self._current_temp = temp
         _logger.debug('TempController: measured temp', temp)
         if temp < self._target_temp:
@@ -397,6 +400,9 @@ class TempController:
     def current_temp(self) -> float:
         """ Current temp (in C), refreshed periocially. """ 
         return self._current_temp
+    
+    def current_temp_raw(self) -> float: 
+        return self._current_temp_raw
 
 
 class StirrerController:
