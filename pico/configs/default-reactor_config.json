@@ -1,22 +1,23 @@
 {
-    "incubator_od": {
-      "intercept": -11.59205539167169,
-      "slope": 0.00019927860804722363
-    },
-    "incubator_temp": {
-      "intercept": -3.2129495472186207,
-      "slope": 1.1653298835705044
-    },
-    "lagoon_temp": {
-      "intercept": -4.825295203092907,
-      "slope": 1.2057411122068846
-    },
-    "incubator_stirrer_top_speed_frac": 0.3,
-    "lagoon_stirrer_top_speed_frac": 0.4,
-    "pumps_speed_frac": 0.4,
-    "pump_incubator_to_lagoon_burst_vol_ml": 0.1740618000000002,
-    "pump_incubator_to_lagoon_burst_duration_s": 0.5,
-    "pump_lagoon_to_waste_burst_duration_s": 0.6,
-    "induction_ml_per_step": 0.001511259,
-    "seconds_since_epoch_offset": 106411057
-  }
+  "incubator_od": {
+    "intercept": -0.36461519561791467,
+    "slope": 2.844244873278739e-05
+  },
+  "incubator_temp": {
+    "intercept": 3.5534968317296496,
+    "slope": 0.8976766017366812
+  },
+  "lagoon_temp": {
+    "intercept": 3.5073503097040515,
+    "slope": 0.8807639366827255
+  },
+  "incubator_stirrer_top_speed_frac": 0.16,
+  "lagoon_stirrer_top_speed_frac": 0.25,
+  "pumps_speed_frac": 0.4,
+  "pump_incubator_to_lagoon_burst_vol_ml": 0.18798674400000023,
+  "pump_incubator_to_lagoon_burst_duration_s": 0.5,
+  "pump_lagoon_to_waste_burst_duration_s": 0.6,
+  "induction_ml_per_step": 0.0001594387755102041,
+  "seconds_since_epoch_offset": 106411057,
+  "stepper_direction": 1
+}
