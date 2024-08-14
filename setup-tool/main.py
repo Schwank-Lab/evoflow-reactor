@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
     commands = generate_commands(nw_path, port)
 
-    with open('/tmp/commands.sh', 'w') as cmd_file:
+    with open('tmp/commands.sh', 'w') as cmd_file:
         cmd_file.write(commands)
         cmd_path = Path(cmd_file.name)
 
