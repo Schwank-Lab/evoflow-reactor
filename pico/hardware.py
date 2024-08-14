@@ -87,7 +87,7 @@ class Stirrer:
     
     def __init__(self, pin): 
         self._motor = PWM(pin) ## use PWM to set speed of stirrer
-        self._motor.freq(1000) ## test a few, to see which frequency works best with fan. 500hz works on Duet2 boards. 
+        self._motor.freq(200) ## test a few, to see which frequency works best with fan. 500hz works on Duet2 boards. 
 
     def on(self):
         self.set_speed(speed_frac=1.0)
@@ -218,8 +218,8 @@ class Hardware:
         self.heater_lagoon = Pin(14, Pin.OUT, value=0)
         self.stirrer_lagoon = Stirrer(Pin(1, Pin.OUT))
 
-        self.pump_medium_to_incubator = Pump(Pin(17, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
-        self.pump_incubator_to_waste = Pump(Pin(18, Pin.OUT, value=0), mode=Pump.MODE_PIN)
+        self.pump_medium_to_incubator = Pump(Pin(18, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
+        self.pump_incubator_to_waste = Pump(Pin(17, Pin.OUT, value=0), mode=Pump.MODE_PIN)
         self.pump_incubator_to_lagoon = Pump(Pin(20, Pin.OUT, value=0), speed=config.pump_incubator_to_lagoon_speed_frac)
         #self.pump_incubator_to_lagoon = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), dir_pin=Pin(11, Pin.OUT, value=0))
         #self.pump_incubator_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
