@@ -10,3 +10,5 @@ calibration/temp_calibration_logs
 pico/pico.code-workspace
 tmp
 client/configs
+.evotool.json
+calibration_logs

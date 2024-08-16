@@ -1,16 +1,17 @@
 import sys
 import os
+from pathlib import Path
 
-def generate_script(speed_frac):
+def generate_script(speed_frac, tmp_dir=Path('tmp'), script_name='calibrate_inc_stirrer.py'):   
     script_content = f"""from calibration import stop_all, calibrate_inc_stirrer
 
 stop_all()
 calibrate_inc_stirrer(top_speed_frac={speed_frac})
 """
-    os.makedirs('tmp', exist_ok=True)
-    with open('tmp/calibrate_inc_stirrer.py', 'w') as script_file:
+    tmp_dir.mkdir(exist_ok=True)
+    with open(tmp_dir / script_name, 'w') as script_file:
         script_file.write(script_content)
-    print("Script generated and stored to tmp/calibrate_inc_stirrer.py")
+    print(f"Script generated and stored to {tmp_dir}/{script_name}")
 
 def write_speed_frac_to_file(speed_frac, exp_name):
     file_path = f'experiments/{exp_name}/inc_stirrer_speed_frac.txt'

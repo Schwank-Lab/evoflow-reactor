@@ -1,16 +1,17 @@
 import sys
 import os
+from pathlib import Path
 
-def generate_script(temp):
+def generate_script(temp, tmp_dir=Path('tmp'), script_name='calibrate_temp.py'):
     script_content = f"""from calibration import stop_all, calibrate_temp
 
 stop_all()
 calibrate_temp({temp})
 """
-    os.makedirs('tmp', exist_ok=True)
-    with open('tmp/calibrate_temp.py', 'w') as script_file:
+    tmp_dir.mkdir(exist_ok=True)
+    with open(tmp_dir / script_name, 'w') as script_file:
         script_file.write(script_content)
-    print("Script generated and stored to tmp/calibrate_temp.py")
+    print(f"Script generated and stored to {tmp_dir}/{script_name}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
