@@ -1,18 +1,16 @@
-
-
 import sys
-import os
+from pathlib import Path
 
-def generate_script(rotation_deg):
+def generate_script(rotation_deg, temp_dir=Path('tmp'), script_name='diagnostics_stepper.py'):
     script_content = f"""from diagnostics import stop_all, test_stepper_rotation 
 
 stop_all() 
 test_stepper_rotation({rotation_deg})
 """
-    os.makedirs('tmp', exist_ok=True)
-    with open('tmp/diagnostics_stepper.py', 'w') as script_file:
+    temp_dir.mkdir(exist_ok=True)
+    with open(temp_dir / script_name, 'w') as script_file:
         script_file.write(script_content)
-    print("Script generated and stored to tmp/diagnostics_stepper.py")
+    print(f"Script generated and stored to {temp_dir}/{script_name}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
