@@ -106,3 +106,10 @@ INSERT INTO experiment (name, reactor_id, status, timestamp)
 VALUES ('2024.07.30_idec_TadA', 12, 'stop', EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER);
 ```
 
+Manually update an experiment in the database: 
+
+```
+UPDATE experiment set status = 'stop'
+WHERE experiment_id = 28;
+```
+
