@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 import json 
 import glob
+from sys import exit 
 
 
 import find_pico
