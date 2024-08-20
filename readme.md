@@ -10,7 +10,7 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
    2.1 Install python, following instructions at https://github.com/pyenv/pyenv
    2.2 Install pipx following instructions at https://pipx.pypa.io/stable/installation/ 
    2.3 Install poetry using `pipx install poetry`
- 3. Download the code (either using `git clone` or by downloading the archive from github)
+ 3. Run `git clone git@github.com:Schwank-Lab/evoflow-reactor.git` (you might have to register your laptop with github, follow instructions [here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) 
  4. Navigate to the code folder and run `poetry install`
       
 ### Reactor setup
