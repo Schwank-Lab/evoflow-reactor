@@ -7,7 +7,7 @@ from sys import exit
 
 
 import find_pico
-from diagnostics import diagnostics_stepper
+from diagnostics import diagnostics_stepper, diagnostics_od
 from calibration import calibration_inc_stirrer, calibration_lagoon_stirrer, calibration_od, calibration_temp, calibration_stepper
 
 DIR_DIAGNOSTICS = Path('diagnostics')
@@ -36,6 +36,14 @@ def run_stepper_calibration(rotation_deg, port):
     run_script(DIR_TMP / 'calibrate_stepper.py', port)
 
 ## Diagnostics commands
+def run_inc_left_od_diagnostic(port): 
+    diagnostics_od.generate_script('inc_left', temp_dir=DIR_TMP, script_name='diagnostics_left_od.py')
+    run_script(DIR_TMP / 'diagnostics_left_od.py', port)
+
+def run_inc_right_od_diagnostic(port): 
+    diagnostics_od.generate_script('inc_right', temp_dir=DIR_TMP, script_name='diagnostics_right_od.py')
+    run_script(DIR_TMP / 'diagnostics_right_od.py', port)
+
 def run_stepper_diagnostic(rotation_deg, port): 
     diagnostics_stepper.generate_script(rotation_deg, temp_dir=DIR_TMP, script_name='diagnostics_stepper.py')
     run_script(DIR_TMP / 'diagnostics_stepper.py', port)
@@ -126,7 +134,8 @@ if __name__ == '__main__':
     parser_stepper.add_argument('rotation_deg', type=int, help='Rotation degrees')
     diagnose_hardware_parsers.add_parser('stirrers', help='Diagnose stirrers')
     diagnose_hardware_parsers.add_parser('temp', help='Diagnose temperature sensors')
-    diagnose_hardware_parsers.add_parser('od', help='Diagnose optical density sensors')
+    diagnose_hardware_parsers.add_parser('od_left', help='Diagnose optical density sensors on the left turbidostat')
+    diagnose_hardware_parsers.add_parser('od_right', help='Diagnose optical density sensors on the right turbidostat')
     diagnose_hardware_parsers.add_parser('stop', help='Stop all hardware')
 
     ## Commands for running calibration
@@ -182,8 +191,10 @@ if __name__ == '__main__':
             run_script(DIR_DIAGNOSTICS / 'diagnostics_stirrers.py', port)
         elif args.part == 'temp':
             run_script(DIR_DIAGNOSTICS / 'diagnostics_heaters.py', port)
-        elif args.part == 'od':
-            run_script(DIR_DIAGNOSTICS / 'diagnostics_od.py', port)
+        elif args.part == 'od_left':
+            run_inc_left_od_diagnostic(port)
+        elif args.part == 'od_right':
+            run_inc_right_od_diagnostic(port)
         elif args.part == 'stop':
             run_script(DIR_DIAGNOSTICS / 'diagnostics_stop.py', port)
         else:

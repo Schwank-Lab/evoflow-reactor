@@ -3,7 +3,7 @@ from hardware import Hardware
 import time
 import math
 
-PUMP_ON_DURATION_SEC = 10
+PUMP_ON_DURATION_SEC = 5
 STEPPER_ON_DURATION_SEC = 20
 STIRRER_ON_DURATION_SEC = 10
 OD_MEASURE_DURATION_SEC = 10
@@ -15,20 +15,25 @@ TEMP_MEASURE_DURATION_SEC = 60
 hw = Hardware(hardware_config.default_config())
 
 STIRRERS = [
-    ('Inucbator Stirrer', hw.stirrer_inc),
+    ('Left Inc Stirrer', hw.inc_left_stirrer),
     ('Lagoon Stirrer', hw.stirrer_lagoon),
+    ('Right Inc Stirrer', hw.inc_right_stirrer)
 ]
 
 PUMPS = [
-    ('pump_medium_to_incubator', hw.pump_medium_to_incubator),
-    ('pump_incubator_to_waste', hw.pump_incubator_to_waste),
-    ('pump_incubator_to_lagoon', hw.pump_incubator_to_lagoon),
-    ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste )
+    ('pump_medium_to_inc_left', hw.pump_medium_to_inc_left),
+    ('pump_incubator_to_waste', hw.pump_inc_left_to_waste),
+    ('pump_incubator_to_lagoon', hw.pump_inc_left_to_lagoon),
+    ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste),
+    ('pump_medium_to_inc_right', hw.pump_medium_to_inc_right),
+    ('stepper_front_left', hw.stepper_front_left),
+    ('stepper_front_right', hw.stepper_front_right),
 ]
 
 HEATERS = [
-    ('Temp Incubator', hw.heater_inc, hw.temp_sensor_inc),
-    ('Temp Lagoon', hw.heater_lagoon, hw.temp_sensor_lagoon)
+    ('Temp Inc Left', hw.inc_left_heater, hw.inc_left_temp_sensor),
+    ('Temp Lagoon', hw.heater_lagoon, hw.temp_sensor_lagoon),
+    ('Temp Inc Right', hw.inc_right_heater, hw.inc_right_temp_sensor)
 ]
 
 def stop_all():
@@ -81,6 +86,7 @@ def test_stirrers():
         time.sleep(STIRRER_ON_DURATION_SEC)
         stirrer.off()
 
+
 def compute_stats(measurements):
     measurements = [m for m in measurements if m is not None]
     N = len(measurements)
@@ -90,27 +96,46 @@ def compute_stats(measurements):
     std = math.sqrt(1/N * sum([(m-mean) ** 2 for m in measurements]))
     return mean, std
 
-def measure_od():
+def measure_od_inc_left():
     print(f'Measuring OD every {OD_MEASURE_INTERVAL_SEC}s for {OD_MEASURE_DURATION_SEC}s')
     raws = []
     ods = []
     
     for _ in range(OD_MEASURE_DURATION_SEC // OD_MEASURE_INTERVAL_SEC):
-        hw.inc_led.on()
+        hw.inc_left_led.on()
         time.sleep_ms(50) # todo: share the config with the controller
-        curr_raw = hw.inc_od_sensor.read_raw()
-        curr_od = hw.inc_od_sensor.read_od()
+        curr_raw = hw.inc_left_od_sensor.read_raw()
+        curr_od = hw.inc_left_od_sensor.read_od()
         print(f'RAW={curr_raw:.2f}, OD={curr_od:.2f}')
         raws.append(curr_raw)
         ods.append(curr_od)
-        hw.inc_led.off()
+        hw.inc_left_led.off()
+        time.sleep_ms(50) # todo: share the config with the controller
+        time.sleep(OD_MEASURE_INTERVAL_SEC)
+    
+    return compute_stats(raws), compute_stats(ods)
+
+def measure_od_inc_right():
+    print(f'Measuring OD every {OD_MEASURE_INTERVAL_SEC}s for {OD_MEASURE_DURATION_SEC}s')
+    raws = []
+    ods = []
+    
+    for _ in range(OD_MEASURE_DURATION_SEC // OD_MEASURE_INTERVAL_SEC):
+        hw.inc_right_led.on()
+        time.sleep_ms(50) # todo: share the config with the controller
+        curr_raw = hw.inc_right_od_sensor.read_raw()
+        curr_od = hw.inc_right_od_sensor.read_od()
+        print(f'RAW={curr_raw:.2f}, OD={curr_od:.2f}')
+        raws.append(curr_raw)
+        ods.append(curr_od)
+        hw.inc_right_led.off()
         time.sleep_ms(50) # todo: share the config with the controller
         time.sleep(OD_MEASURE_INTERVAL_SEC)
     
     return compute_stats(raws), compute_stats(ods)
     
     
-def test_od():
+def test_od(measure_od):
     print('Testing OD measurement')
     print('Put clear probe')
     for i in range(3, 0, -1):

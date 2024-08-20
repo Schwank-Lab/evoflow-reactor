@@ -25,14 +25,14 @@ def compute_stats(measurements):
     return mean, std
 
 def stop_all(): 
-    hw.stirrer_inc.off()
+    hw.inc_left_stirrer.off()
     hw.stirrer_lagoon.off()
-    hw.pump_incubator_to_lagoon.off()
+    hw.pump_inc_left_to_lagoon.off()
 
 def calibrate_inc_stirrer(top_speed_frac):
     print(f'Restarting incubator stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
-    ctl = pace_controller.StirrerController(hw.stirrer_inc, top_speed_frac, q, priority=1)
+    ctl = pace_controller.StirrerController(hw.inc_left_stirrer, top_speed_frac, q, priority=1)
     ctl.__bg__restart_motor()
     i = 0
     while not q.empty():
@@ -63,7 +63,7 @@ def calibrate_temp(target_temp):
     lagoon_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
     
     print(f'Setting target temperature to {target_temp}C.')
-    inc_ctl = pace_controller.TempController(hw.temp_sensor_inc, hw.heater_inc, target_temp)
+    inc_ctl = pace_controller.TempController(hw.inc_left_temp_sensor, hw.inc_left_heater, target_temp)
     lagoon_ctl = pace_controller.TempController(hw.temp_sensor_lagoon, hw.heater_lagoon, target_temp)
     i = 0
     while True:
@@ -90,7 +90,7 @@ def calibrate_od(num_probes=5):
     num_measurements_per_probe = 5
     measure_od_delay_s = 5
     q = pace_controller.TaskQueue(clk)
-    stirrer = pace_controller.StirrerController(hw.stirrer_inc, hw_config.incubator_stirrer_top_speed_frac, q, priority=1)
+    stirrer = pace_controller.StirrerController(hw.inc_left_stirrer, hw_config.incubator_stirrer_top_speed_frac, q, priority=1)
     measurements = [[] for _ in range(num_probes)] 
     for num_probe in range(num_probes):
         # Give user time to switch out the probe.
@@ -107,15 +107,15 @@ def calibrate_od(num_probes=5):
 
         # Measure OD
         for num_measurement in range(num_measurements_per_probe):
-            hw.inc_led.on()
+            hw.inc_left_led.on()
             time.sleep_ms(pace_controller.ODController.TIME_OD_DELAY)
-            raw = hw.inc_od_sensor.read_raw()
+            raw = hw.inc_left_od_sensor.read_raw()
             measurements[num_probe].append(raw)
-            hw.inc_led.off()
+            hw.inc_left_led.off()
             time.sleep(measure_od_interval_s)
             print(f'Probe {num_probe+1}/{num_probes} Measurement {num_measurement+1}/{num_measurements_per_probe} RAW={raw:.2f}')
         
-        hw.stirrer_inc.off()
+        hw.inc_left_stirrer.off()
 
     with open('tmp/od_calibration.csv', 'w') as f: 
         for probe_measurements in measurements:
@@ -135,12 +135,12 @@ def calibrate_pump_incubator_to_lagoon(target_vol):
         for i in range(num_bursts):
             if i % report_every == 0: 
                 print(f'Pumped {i*burst_vol:.2f}/{target_vol}mL')
-            hw.pump_incubator_to_lagoon.on()
+            hw.pump_inc_left_to_lagoon.on()
             time.sleep(burst_on_s)
-            hw.pump_incubator_to_lagoon.off()
+            hw.pump_inc_left_to_lagoon.off()
             time.sleep(burst_off_s)
     except KeyboardInterrupt:
-        hw.pump_incubator_to_lagoon.off()
+        hw.pump_inc_left_to_lagoon.off()
 
 
 def calibrate_stepper(rotation_dir, rotation_deg=180): 

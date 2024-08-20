@@ -208,19 +208,37 @@ class StepperMotor:
 class Hardware:
 
     def __init__(self, config: HardwareConfig): 
-        self.inc_led = Pin(2, Pin.OUT, value=0)
-        self.inc_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)), config.incubator_od_convert)
-        self.temp_sensor_inc = TempSensor(Pin(22, Pin.IN), config.incubator_temp_convert)
-        self.heater_inc = Pin(7, Pin.OUT, value=0)
-        self.stirrer_inc = Stirrer(Pin(0, Pin.OUT))
+
+        # left incubator
+
+        self.inc_left_led = Pin(2, Pin.OUT, value=0)
+        self.inc_left_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)), config.incubator_od_convert)
+        self.inc_left_temp_sensor = TempSensor(Pin(22, Pin.IN), config.incubator_temp_convert)
+        self.inc_left_heater = Pin(7, Pin.OUT, value=0)
+        self.inc_left_stirrer = Stirrer(Pin(0, Pin.OUT))
+
+        # right incubator
+
+        self.inc_right_led = Pin(3,  Pin.OUT, value=0)
+        self.inc_right_od_sensor = ODSensor(ADC(Pin(28, Pin.IN)), config.incubator_od_convert)
+        self.inc_right_temp_sensor = TempSensor(Pin(16, Pin.IN), config.incubator_temp_convert)
+        self.inc_right_heater = Pin(15, Pin.OUT, value=0)
+        self.inc_right_stirrer = Stirrer(Pin(6, Pin.OUT))
+
+        # lagoon 
 
         self.temp_sensor_lagoon = TempSensor(Pin(26, Pin.IN), config.lagoon_temp_convert)
         self.heater_lagoon = Pin(14, Pin.OUT, value=0)
         self.stirrer_lagoon = Stirrer(Pin(1, Pin.OUT))
 
-        self.pump_medium_to_incubator = Pump(Pin(18, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
-        self.pump_incubator_to_waste = Pump(Pin(17, Pin.OUT, value=0), mode=Pump.MODE_PIN)
-        self.pump_incubator_to_lagoon = Pump(Pin(20, Pin.OUT, value=0), speed=config.pump_incubator_to_lagoon_speed_frac)
+        # pumps 
+
+        self.pump_medium_to_inc_left = Pump(Pin(18, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
+        self.pump_inc_left_to_waste = Pump(Pin(17, Pin.OUT, value=0), mode=Pump.MODE_PIN)
+        self.pump_inc_left_to_lagoon = Pump(Pin(20, Pin.OUT, value=0), speed=config.pump_incubator_to_lagoon_speed_frac)
+        self.pump_medium_to_inc_right = Pump(Pin(21, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
+        self.stepper_front_left = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), dir_pin=Pin(11, Pin.OUT, value=0))
+        self.stepper_front_right = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
         #self.pump_incubator_to_lagoon = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), dir_pin=Pin(11, Pin.OUT, value=0))
         #self.pump_incubator_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
         
