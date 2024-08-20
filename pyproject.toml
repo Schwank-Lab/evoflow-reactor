@@ -7,6 +7,7 @@ readme = "README.md"
 
 packages = [
     { include = "diagnostics" },
+    { include = "calibration" },
     { include = "setup-tool"}
 ]
 
@@ -23,3 +24,6 @@ pyserial = "^3.5"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[project.scripts]
+evotool = "setup-tool.evotool"
