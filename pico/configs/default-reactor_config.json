@@ -15,7 +15,6 @@
   "lagoon_stirrer_top_speed_frac": 0.25,
   "pumps_speed_frac": 0.4,
   "pump_lagoon_to_waste_burst_duration_s": 0.6,
-  "seconds_since_epoch_offset": 106411057,
   "bact_stepper_ml_per_step": 0.0001,
   "induction_stepper_direction": 1,
   "induction_stepper_ml_per_step": 0.0001594387755102041
