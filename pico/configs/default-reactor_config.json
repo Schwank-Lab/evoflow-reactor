@@ -14,10 +14,9 @@
   "incubator_stirrer_top_speed_frac": 0.16,
   "lagoon_stirrer_top_speed_frac": 0.25,
   "pumps_speed_frac": 0.4,
-  "pump_incubator_to_lagoon_burst_vol_ml": 0.18798674400000023,
-  "pump_incubator_to_lagoon_burst_duration_s": 0.5,
   "pump_lagoon_to_waste_burst_duration_s": 0.6,
-  "induction_ml_per_step": 0.0001594387755102041,
   "seconds_since_epoch_offset": 106411057,
-  "stepper_direction": 1
+  "bact_stepper_ml_per_step": 0.0001,
+  "induction_stepper_direction": 1,
+  "induction_stepper_ml_per_step": 0.0001594387755102041
 }

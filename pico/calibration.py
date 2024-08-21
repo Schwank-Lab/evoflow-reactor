@@ -26,6 +26,7 @@ def compute_stats(measurements):
 
 def stop_all(): 
     hw.inc_left_stirrer.off()
+    hw.inc_right_stirrer.off()
     hw.stirrer_lagoon.off()
     hw.pump_inc_left_to_lagoon.off()
 
@@ -123,24 +124,15 @@ def calibrate_od(num_probes=5):
             f.write('\n')
 
 
-def calibrate_pump_incubator_to_lagoon(target_vol): 
-    burst_vol = hw_config.pump_incubator_to_lagoon_burst_vol_ml
-    num_bursts = target_vol // burst_vol
-    burst_on_s = hw_config.pump_incubator_to_lagoon_burst_duration_s
-    burst_off_s = max(0.5, burst_on_s)
-    report_every = 10 
-    print(f'Pumping {target_vol} mL will take {num_bursts * (burst_on_s + burst_off_s)}s')
-    print('Make sure that pump is primed.')
-    try:
-        for i in range(num_bursts):
-            if i % report_every == 0: 
-                print(f'Pumped {i*burst_vol:.2f}/{target_vol}mL')
-            hw.pump_inc_left_to_lagoon.on()
-            time.sleep(burst_on_s)
-            hw.pump_inc_left_to_lagoon.off()
-            time.sleep(burst_off_s)
-    except KeyboardInterrupt:
-        hw.pump_inc_left_to_lagoon.off()
+def calibrate_pump_incubator_to_lagoon(num_steps=10000): 
+    freq = 1000
+    time_s = num_steps / freq
+    print(f'Taking {num_steps} steps, should take {time_s:.2f} seconds')
+    print('!!!! MAKE SURE THAT THE PUMP IS PRIMED !!!!')
+    hw.pump_inc_left_to_lagoon.set_frequency(1000)
+    hw.pump_inc_left_to_lagoon.on()
+    time.sleep(time_s)
+    hw.pump_inc_left_to_lagoon.off()
 
 
 def calibrate_stepper(rotation_dir, rotation_deg=180): 

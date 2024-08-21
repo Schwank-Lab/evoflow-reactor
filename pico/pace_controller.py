@@ -15,6 +15,9 @@ def m_to_ms(mins):
 def h_to_ms(hours): 
     return m_to_ms(60*hours)
 
+def h_to_s(hours):
+    return 60 * 60 * hours
+
 def median(arr): 
     sorted_arr = sorted(arr)
     l = len(arr)
@@ -444,60 +447,39 @@ class StirrerController:
 class LagoonFlowController():
     
     def __init__(self, hardware, hardware_config: HardwareConfig, experiment_config): 
-        self._bacteria_pump = hardware.pump_incubator_to_lagoon
+        self._bacteria_stepper = hardware.pump_incubator_to_lagoon
         self._waste_pump = hardware.pump_lagoon_to_waste
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
         self._flow_rate = experiment_config['lagoon_flow_rate']
         self._lagoon_volume = experiment_config['lagoon_volume']
-        if experiment_config['arabinose_target_concentration'] > 0: 
+        self._bact_ml_per_step = hardware_config.bact_ml_per_step
+        if self._flow_rate > 0 and experiment_config['arabinose_target_concentration'] > 0: 
             self._ara_conc = experiment_config['arabinose_target_concentration'] / experiment_config['arabinose_stock_concentration']
             if self._ara_conc >= 0.2: 
                 raise ValueError(f'Arabinose concentration of {self._ara_conc:.2f} is too high, consider increasing stock molarity.')
+            
             ara_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * self._ara_conc
-            ara_steps_per_hour = ara_flow_ml_per_hour / hardware_config.induction_ml_per_step
-            self._ara_step_interval = h_to_ms(1) // ara_steps_per_hour 
-            _logger.info(f'LagoonFlowController: ara step every {(self._ara_step_interval / 1000):.1f}s')
+            self._ara_steps_per_sec = ara_flow_ml_per_hour / h_to_s(1)  / hardware_config.induction_stepper_ml_per_step
+            
+            _logger.info(f'LagoonFlowController: arabinose induction {experiment_config['arabinose_target_concentration']}mM == {ara_flow_ml_per_hour:.2f}mL/h == {self._ara_steps_per_sec:.2f} steps/s')
         else:
             self._ara_conc = 0
             _logger.info('LagoonFlowController: no arabinose induction.')
-
-       
         
         if self._flow_rate > 0:
-            # convert flow rate from lv/h to ml/h
-            bact_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * (1 - self._ara_conc)
-            # calculate how many bursts we have to do per hour to achieve the flow rate
-            bact_bursts_per_hour = bact_flow_ml_per_hour / hardware_config.pump_incubator_to_lagoon_burst_vol_ml
-            # calculate how often to we have to do bursts
-            self._bact_burst_interval = h_to_ms(1) // bact_bursts_per_hour
-            self._bact_burst_duration = s_to_ms(hardware_config.pump_incubator_to_lagoon_burst_duration_s)
-            self._waste_burst_duration = s_to_ms(hardware_config.pump_lagoon_to_waste_burst_duration_s)
-            _logger.info(f'LagoonFlowController: bacteria pump burst for {(self._bact_burst_duration / 1000):.1f}s every {(self._bact_burst_interval / 1000):.1f}s')
-            if self._bact_burst_interval < self._bact_burst_duration:
-                raise ValueError('Bacteria pump burst interval too short, smaller than burst duration')
+            # convert flow rate from lv/h to steps/s
+            self._bact_steps_per_sec = self._flow_rate / h_to_s(1) / self._bact_ml_per_step
+            _logger.info(f'LagoonFlowController: bacteria flow {self._flow_rate}mL/h == {self._bact_steps_per_sec:.2f} steps/s')
         else: 
-            self._bact_burst_interval = 0
             _logger.info('LagoonFlowController: no bacteria flow.')
         
        
-
     def start(self, task_queue, priority):
-        if self._bact_burst_interval > 0: 
-            task_queue.repeat(self._bact_burst_interval, 
-                          self.__bg__maintain_bact_flow, task_queue, priority, priority=priority)
+        if self._flow_rate > 0:
+            self._bacteria_stepper.set_frequency(self._bact_steps_per_sec)
         if self._ara_conc > 0: 
-            task_queue.repeat(self._ara_step_interval, 
-                            self.__bg__maintain_ara_flow, task_queue, priority, priority=priority+0.5)
+            self._ara_stepper.set_frequency(self._ara_steps_per_sec)
         
-    def __bg__maintain_bact_flow(self, task_queue: TaskQueue, priority): 
-        self._bacteria_pump.on()
-        self._waste_pump.on()
-        task_queue.put(self._bact_burst_duration, self._bacteria_pump.off, priority=priority)
-        task_queue.put(self._waste_burst_duration, self._waste_pump.off, priority=priority)
-        
-    def __bg__maintain_ara_flow(self, task_queue: TaskQueue, priority): 
-        self._ara_stepper.step()
-
     def flow_rate(self): 
         return self._flow_rate
 

@@ -21,12 +21,10 @@ class HardwareConfig:
         self.incubator_stirrer_top_speed_frac = config['incubator_stirrer_top_speed_frac']
         self.lagoon_stirrer_top_speed_frac = config['lagoon_stirrer_top_speed_frac']
         self.pump_medium_to_incubator_speed_frac = config['pumps_speed_frac']
-        self.pump_incubator_to_lagoon_speed_frac = config['pumps_speed_frac']
-        self.pump_incubator_to_lagoon_burst_vol_ml = config['pump_incubator_to_lagoon_burst_vol_ml']
-        self.pump_incubator_to_lagoon_burst_duration_s = config['pump_incubator_to_lagoon_burst_duration_s']
         self.pump_lagoon_to_waste_burst_duration_s = config['pump_lagoon_to_waste_burst_duration_s']
-        self.induction_ml_per_step = config['induction_ml_per_step']
-        self.stepper_direction = config['stepper_direction'] # 1 or -1
+        self.induction_stepper_ml_per_step = config['induction_stepper_ml_per_step']
+        self.induction_stepper_direction = config['induction_stepper_direction'] # 1 or -1
+        self.bact_stepper_ml_per_step = config['bact_stepper_ml_per_step']
 
     
     def incubator_od_convert(self, measurement): 
@@ -50,11 +48,10 @@ def default_config() -> HardwareConfig:
         'incubator_stirrer_top_speed_frac': 0.24,
         'lagoon_stirrer_top_speed_frac': 0.4,
         'pumps_speed_frac':  0.4,
-        'pump_incubator_to_lagoon_burst_vol_ml': 0.165,
-        'pump_incubator_to_lagoon_burst_duration_s': 0.5,
         'pump_lagoon_to_waste_burst_duration_s': 0.6,
-        'induction_ml_per_step': calculate_vol_per_step(STEPS_PER_REVOLUTION_BULLDOG, SHAFT_LEAD_MM, SYRINGE_LARGE_ML_PER_MM),
-        'stepper_direction': 1
+        'induction_stepper_direction': 1,
+        'induction_stepper_ml_per_step': calculate_vol_per_step(STEPS_PER_REVOLUTION_BULLDOG, SHAFT_LEAD_MM, SYRINGE_LARGE_ML_PER_MM),
+        'bact_stepper_ml_per_step': 0.0001
     } 
     return HardwareConfig(cfg)
 

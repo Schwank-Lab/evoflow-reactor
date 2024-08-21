@@ -8,7 +8,7 @@ from sys import exit
 
 import find_pico
 from diagnostics import diagnostics_stepper, diagnostics_od
-from calibration import calibration_inc_stirrer, calibration_lagoon_stirrer, calibration_od, calibration_temp, calibration_stepper
+from calibration import calibration_inc_stirrer, calibration_induction_stepper, calibration_bact_stepper, calibration_lagoon_stirrer, calibration_od, calibration_temp
 
 DIR_DIAGNOSTICS = Path('diagnostics')
 DIR_TMP = Path('tmp')
@@ -31,9 +31,13 @@ def run_temp_calibration(target_temp, port):
     calibration_temp.generate_script(target_temp, tmp_dir=DIR_TMP, script_name='calibrate_temp.py')
     run_script(DIR_TMP / 'calibrate_temp.py', port)
 
-def run_stepper_calibration(rotation_deg, port):
-    calibration_stepper.generate_script(rotation_deg, tmp_dir=DIR_TMP, script_name='calibrate_stepper.py')
-    run_script(DIR_TMP / 'calibrate_stepper.py', port)
+def run_bact_stepper_calibration(num_steps, port): 
+    calibration_bact_stepper.generate_script(num_steps, tmp_dir=DIR_TMP, script_name='calibrate_bact_stepper.py')
+    run_script(DIR_TMP / 'calibrate_bact_stepper.py', port)
+
+def run_induction_stepper_calibration(rotation_deg, port):
+    calibration_induction_stepper.generate_script(rotation_deg, tmp_dir=DIR_TMP, script_name='calibrate_induction_stepper.py')
+    run_script(DIR_TMP / 'calibrate_induction_stepper.py', port)
 
 ## Diagnostics commands
 def run_inc_left_od_diagnostic(port): 
@@ -154,8 +158,11 @@ if __name__ == '__main__':
     parser_calibrate_temp = calibrate_hardware_parsers.add_parser('temp', help='Calibrate temperature sensors')
     parser_calibrate_temp.add_argument('target_temp', type=float, help='Target temperature for calibration')
 
-    parser_calibrate_stepper = calibrate_hardware_parsers.add_parser('stepper', help='Calibrate stepper motor rotation direction. Either +1 or -1')
-    parser_calibrate_stepper.add_argument('rotation_direction', type=int, choices=[+1, -1], help='Rotation direction of the stepper motor, either +1 or -1')
+    parser_calibrate_bact_stepper = calibrate_hardware_parsers.add_parser('bact_stepper', help='Calibrate step volume of the bacteria stepper motor')
+    parser_calibrate_bact_stepper.add_argument('--num_steps', type=int, default=10000, help='Number of steps to use during calibration')
+    
+    parser_calibrate_induction_stepper = calibrate_hardware_parsers.add_parser('induction_stepper', help='Calibrate roation direction of the induction stepper motor. Either +1 or -1')
+    parser_calibrate_induction_stepper.add_argument('rotation_direction', type=int, choices=[+1, -1], help='Rotation direction of the induction stepper motor, either +1 or -1')
 
     args = parser.parse_args()
 
@@ -163,9 +170,6 @@ if __name__ == '__main__':
     cfg = load_evotool_config()
     if 'calibration_folder' in cfg.keys(): 
         calibration_folder = Path(cfg['calibration_folder'])
-        if not calibration_folder.exists():
-            print(f'Calibration folder {calibration_folder} does not exist. Please run `evotool calibrate new <folder>`')
-            exit(1)
     else:
         calibration_folder = None
 
@@ -210,6 +214,9 @@ if __name__ == '__main__':
             if calibration_folder is None: 
                 print('Please run `evotool calibrate new <folder>` first')
                 exit(1)
+            if not calibration_folder.exists():
+                print(f'Calibration folder {calibration_folder} does not exist. Please run `evotool calibrate new <folder>`')
+                exit(1)
             else: 
                 print('Using calibration folder:', calibration_folder)
         if args.part == 'inc_stirrer': 
@@ -228,9 +235,13 @@ if __name__ == '__main__':
             get_ampy('tmp/od_calibration.csv', calibration_folder / 'od_measured.csv', port)
         elif args.part == 'temp': 
             run_temp_calibration(args.target_temp, port)
-        elif args.part == 'stepper': 
-            run_stepper_calibration(args.rotation_direction, port)
-            with open(calibration_folder / 'stepper_rotation_direction.txt', 'w') as speed_file:
+        elif args.part == 'bact_stepper': 
+            run_bact_stepper_calibration(args.num_steps, port)
+            with open(calibration_folder / 'bact_stepper_num_steps.txt', 'w') as steps_file:
+                steps_file.write(str(args.num_steps))
+        elif args.part == 'induction_stepper': 
+            run_induction_stepper_calibration(args.rotation_direction, port)
+            with open(calibration_folder / 'induction_stepper_rotation_direction.txt', 'w') as speed_file:
                 speed_file.write(str(args.rotation_direction))
         else: 
             parser_calibrate.print_help()
