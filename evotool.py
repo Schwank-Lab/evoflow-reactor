@@ -7,10 +7,11 @@ from sys import exit
 import pandas as pd 
 import numpy as np  
 from sklearn.linear_model import LinearRegression
+import serial.tools.list_ports
 
 
 
-import find_pico
+
 from diagnostics import diagnostics_stepper, diagnostics_od
 
 DIR_DIAGNOSTICS = Path('diagnostics')
@@ -28,6 +29,12 @@ CALIBRATION_INC_LEFT_STIRRER_SPEED = 'inc_left_stirrer_speed_frac.txt'
 CALIBRATION_INC_RIGHT_STIRRER_SPEED = 'inc_right_stirrer_speed_frac.txt'
 CALIBRATION_LAGOON_STIRRER_SPEED = 'lagoon_stirrer_speed_frac.txt'
 
+def find_pico_port():
+    ports = serial.tools.list_ports.comports()
+    for port in ports:
+        if "Pico" in port.description or "Board" in port.description:
+            return port.device
+    return None
 ## Calibration commands 
 def run_inc_left_stirrer_calibration(speed_frac, port): 
     script_content = f"""from calibration import stop_all, calibrate_inc_left_stirrer
@@ -434,7 +441,7 @@ if __name__ == '__main__':
     ## Find pico
     port = args.port
     if port is None: 
-        port = find_pico.find_pico_port()
+        port = find_pico_port()
         if port is None: 
             print('Could not find the pico attached. Re-plug or provide correct port via --port')
             exit(1)
