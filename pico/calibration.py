@@ -92,13 +92,13 @@ def calibrate_temp(target_temp):
         time.sleep(adjust_temp_interval_s)
         i += 1
 
-def calibrate_od_inc_left(num_probes=5):
+def calibrate_inc_left_od(num_probes=5):
     q = pace_controller.TaskQueue(clk)
     stirrer = pace_controller.StirrerController(hw.inc_left_stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, priority=1)
     _calibrate_od(num_probes, stirrer, hw.inc_left_led, hw.inc_left_od_sensor, q)
 
 
-def calibrate_od_inc_right(num_probes=5):
+def calibrate_inc_right_od(num_probes=5):
     q = pace_controller.TaskQueue(clk)
     stirrer = pace_controller.StirrerController(hw.inc_right_stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, priority=1)
     _calibrate_od(num_probes, stirrer, hw.inc_right_led, hw.inc_right_od_sensor, q)
@@ -113,10 +113,10 @@ def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):
     measurements = [[] for _ in range(num_probes)] 
     for num_probe in range(num_probes):
         # Give user time to switch out the probe.
-        print(f'Insert probe {num_probe}')
+        print(f'Insert probe {num_probe+1} out of {num_probes}')
         for t in range(measure_od_delay_s, 0, -1):
             print(f'Measruing OD in {t}s')
-            time.sleep(0.3)
+            time.sleep(1)
 
         # Start the stirrer
         stirrer_ctl.__bg__restart_motor()

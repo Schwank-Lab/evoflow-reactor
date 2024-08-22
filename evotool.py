@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np  
 from sklearn.linear_model import LinearRegression
 import serial.tools.list_ports
-
+import shutil
 
 
 
@@ -146,7 +146,7 @@ def compute_temp_calibration(measured_temps, target_temps):
         vals = pd.DataFrame({'target': target_temps, 'measured': measured_temps})
         inc_temp_slope, inc_temp_intercept, pred = linear_fit_1d(vals, 'measured', 'target')
         vals['predicted'] = pred
-        print(f'Inferred: T = {inc_temp_slope:.2f} * RAW + {inc_temp_intercept:.2f}')
+        print(f'Inferred: T = {inc_temp_slope:.5f} * RAW + {inc_temp_intercept:.2f}')
         print(vals)
         return inc_temp_slope, inc_temp_intercept
     else: 
@@ -155,12 +155,12 @@ def compute_temp_calibration(measured_temps, target_temps):
     
 def compute_od_calibration(path_od_measured: Path, path_od_expected: Path):
     if path_od_measured.exists() and path_od_expected.exists(): 
-        od_measured = pd.read_csv(path_od_measured).mean(axis=1)
+        od_measured = pd.read_csv(path_od_measured, header=None).mean(axis=1)
         with open(path_od_expected, 'r') as f: 
             od_expected = list(map(float, f.readlines()))
-        vals = pd.DataFrame({'od': od_measured, 'expected': od_expected})
-        od_slope, od_intercept, pred = linear_fit_1d(od_measured, 'od', 'expected')
-        print(f'Inferred: OD = {od_slope:.2f} * RAW + {od_intercept:.2f}')
+        vals = pd.DataFrame({'measured': od_measured, 'expected': od_expected})
+        od_slope, od_intercept, pred = linear_fit_1d(vals, 'measured', 'expected')
+        print(f'Inferred: OD = {od_slope:.6f} * RAW + {od_intercept:.2f}')
         vals['predicted'] = pred
         print(vals)
         return od_slope, od_intercept
@@ -187,12 +187,12 @@ def compute_new_config(calibration_folder, args, port):
     induction_stepper_direction = cfg['induction_stepper_direction']
 
     print('\n\n\nLeft Incubator temperature sensor')
-    new_slope, new_intercept = compute_temp_calibration(args.inc_measured_temps, args.inc_target_temps)
+    new_slope, new_intercept = compute_temp_calibration(args.inc_left_measured_temps, args.inc_left_target_temps)
     if new_slope is not None:
         inc_left_temp_slope, inc_left_temp_intercept = new_slope, new_intercept
 
     print('\n\n\nRight Incubator temperature sensor')
-    new_slope, new_intercept = compute_temp_calibration(args.inc_measured_temps, args.inc_target_temps)
+    new_slope, new_intercept = compute_temp_calibration(args.inc_right_measured_temps, args.inc_right_target_temps)
     if new_slope is not None:
         inc_right_temp_slope, inc_right_temp_intercept = new_slope, new_intercept 
 
@@ -243,10 +243,10 @@ def compute_new_config(calibration_folder, args, port):
         print('Lagoon stirrer calibration not provided. Re-using old values.')
     
     print('\n\n\nBacteria stepper calibration')
-    if args.inc_stepper_volume is not None:
+    if args.bact_stepper_volume is not None:
         with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'r') as f: 
             bact_stepper_num_steps = float(f.read())
-        bact_stepper_ml_per_step = args.inc_stepper_volume / bact_stepper_num_steps
+        bact_stepper_ml_per_step = args.bact_stepper_volume / bact_stepper_num_steps
         print(f'Inferred bacteria stepper volume per step = {bact_stepper_ml_per_step:.6f}mL')
     else:
         print('Bacteria stepper calibration not provided. Re-using old values. Make sure to set --inc_stepper_volume flag.')
@@ -394,6 +394,7 @@ if __name__ == '__main__':
     calibrate_hardware_parsers = parser_calibrate.add_subparsers(dest='part')
     parser_calibrate_new = calibrate_hardware_parsers.add_parser('new', help='Calibrate new reactor')
     parser_calibrate_new.add_argument('folder', type=str, help='Folder where the calibration data will be stored')
+    parser_calibrate_new.add_argument('--default_config', action='store_true', help='Overwrite pico config with the default config.')
 
     parser_calibrate_inc_left_stirrer =  calibrate_hardware_parsers.add_parser('inc_left_stirrer', help='Calibrate left incubator stirrer speed')
     parser_calibrate_inc_left_stirrer.add_argument('speed_frac', type=float, help='Speed fraction, from 0 to 1')
@@ -418,15 +419,19 @@ if __name__ == '__main__':
     parser_calibrate_induction_stepper.add_argument('rotation_direction', type=int, choices=[+1, -1], help='Rotation direction of the induction stepper motor, either +1 or -1')
 
     parser_calibrate_new_config = calibrate_hardware_parsers.add_parser('compute_config', help='Compute a new calibration config')
-    parser_calibrate_new_config.add_argument('--inc_measured_temps', type=float, nargs='+', default=None, 
-                                             help='Measured temperatures for the incubator')
-    parser_calibrate_new_config.add_argument('--inc_target_temps', type=float, nargs='+', default=None, 
-                                             help='Target temperatures for the incubator')
+    parser_calibrate_new_config.add_argument('--inc_left_measured_temps', type=float, nargs='+', default=None, 
+                                             help='Measured temperatures for the left incubator')
+    parser_calibrate_new_config.add_argument('--inc_left_target_temps', type=float, nargs='+', default=None, 
+                                             help='Target temperatures for the left incubator')
+    parser_calibrate_new_config.add_argument('--inc_right_measured_temps', type=float, nargs='+', default=None, 
+                                             help='Measured temperatures for the right incubator')
+    parser_calibrate_new_config.add_argument('--inc_right_target_temps', type=float, nargs='+', default=None, 
+                                             help='Target temperatures for the right incubator')
     parser_calibrate_new_config.add_argument('--lagoon_measured_temps', type=float, nargs='+', default=None, help
                                              ='Measured temperatures for the lagoon')
     parser_calibrate_new_config.add_argument('--lagoon_target_temps', type=float, nargs='+', default=None, 
                                              help='Target temperatures for the lagoon')
-    parser_calibrate_new_config.add_argument('--inc_stepper_volume', type=float, default=None, 
+    parser_calibrate_new_config.add_argument('--bact_stepper_volume', type=float, default=None, 
                                              help='Volume of liquid dispensed by the bacteria stepper motor.')
     
     args = parser.parse_args()
@@ -474,7 +479,10 @@ if __name__ == '__main__':
                 Path(args.folder).mkdir(exist_ok=True, parents=True)
                 cfg['calibration_folder'] = args.folder
                 json.dump(cfg, cfg_file)
-                get_ampy('configs/reactor_config.json', args.folder + '/old_reactor_config.json', port)
+                if args.default_config:
+                    shutil.copy('pico/configs/default-reactor_config.json', args.folder + '/old_reactor_config.json')
+                else:
+                    get_ampy('configs/reactor_config.json', args.folder + '/old_reactor_config.json', port)
                 exit(0) # TODO: refactor
         else: 
             if calibration_folder is None: 
