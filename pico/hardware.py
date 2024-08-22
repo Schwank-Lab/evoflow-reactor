@@ -240,10 +240,9 @@ class Hardware:
         self.pump_medium_to_inc_left = Pump(Pin(18, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
         self.pump_inc_left_to_waste = Pump(Pin(17, Pin.OUT, value=0), mode=Pump.MODE_PIN)
         self.pump_medium_to_inc_right = Pump(Pin(21, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
-        self.stepper_front_left = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), dir_pin=Pin(11, Pin.OUT, value=0))
         self.pump_inc_left_to_lagoon = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), 
                                                       dir_pin=Pin(11, Pin.OUT, value=0), mode=TMC2208Stepper.MODE_PWM)
-        #self.pump_incubator_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
+        self.pump_inc_right_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
         
         self.pump_lagoon_to_waste = Pump(Pin(19, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 

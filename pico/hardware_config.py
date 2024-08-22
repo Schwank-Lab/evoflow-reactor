@@ -14,11 +14,27 @@ def calculate_vol_per_step(steps_per_revolution, shaft_lead_mm, syringe_ml_per_m
     angle_per_step = 1 / steps_per_revolution # fraction of the full rotation per step 
     return angle_per_step * shaft_lead_mm * syringe_ml_per_mm 
  
+class IncubatorConfig:
+    def __init__(self, config):
+        self._config = config
+        self.od_intercept = config['od']['intercept']
+        self.od_slope = config['od']['slope']
+        self.temp_intercept = config['temp']['intercept']
+        self.temp_slope = config['temp']['slope']
+        self.stirrer_top_speed_frac = config['stirrer_top_speed_frac']
+    
+    def od_convert(self, measurement): 
+        return self.od_slope * measurement + self.od_intercept
+    
+    def temp_convert(self, measurement): 
+        return self.temp_slope * measurement + self.temp_intercept
+    
 class HardwareConfig: 
 
     def __init__(self, config):
         self._config = config
-        self.incubator_stirrer_top_speed_frac = config['incubator_stirrer_top_speed_frac']
+        self.inc_left = IncubatorConfig(config['inc_left'])
+        self.inc_right = IncubatorConfig(config['inc_right'])
         self.lagoon_stirrer_top_speed_frac = config['lagoon_stirrer_top_speed_frac']
         self.pump_medium_to_incubator_speed_frac = config['pumps_speed_frac']
         self.pump_lagoon_to_waste_burst_duration_s = config['pump_lagoon_to_waste_burst_duration_s']
@@ -42,10 +58,17 @@ class HardwareConfig:
 
 def default_config() -> HardwareConfig:
     cfg =  {
-        'incubator_od': {'intercept': -14.706894907315895, 'slope': 0.00024892679660541},
-        'incubator_temp': {'intercept': 0, 'slope': 1},
+        'inc_left': {
+            'od': {'intercept': -14.706894907315895, 'slope': 0.00024892679660541},
+            'temp': {'intercept': 0, 'slope': 1},
+            'stirrer_top_speed_frac': 0.24,
+        },
+        'inc_right': {
+            'od': {'intercept': -14.706894907315895, 'slope': 0.00024892679660541},
+            'temp': {'intercept': 0, 'slope': 1},
+            'stirrer_top_speed_frac': 0.24,
+        },
         'lagoon_temp': {'intercept': 0, 'slope': 1},
-        'incubator_stirrer_top_speed_frac': 0.24,
         'lagoon_stirrer_top_speed_frac': 0.4,
         'pumps_speed_frac':  0.4,
         'pump_lagoon_to_waste_burst_duration_s': 0.6,

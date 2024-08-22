@@ -30,21 +30,20 @@ def stop_all():
     hw.stirrer_lagoon.off()
     hw.pump_inc_left_to_lagoon.off()
 
-def calibrate_inc_stirrer(top_speed_frac):
-    print(f'Restarting incubator stirrer at top speed fraction {top_speed_frac:.2f}')
-    q = pace_controller.TaskQueue(clk)
-    ctl = pace_controller.StirrerController(hw.inc_left_stirrer, top_speed_frac, q, priority=1)
-    ctl.__bg__restart_motor()
-    i = 0
-    while not q.empty():
-        print(f'Starting the stirrer {i}...')
-        q.cycle()
-        i += 1 
+
+def calibrate_inc_right_stirrer(top_speed_frac):
+    _calibrate_stirrer(top_speed_frac, hw.inc_right_stirrer)
+
+def calibrate_inc_left_stirrer(top_speed_frac):
+    _calibrate_stirrer(top_speed_frac, hw.inc_left_stirrer)
 
 def calibrate_lagoon_stirrer(top_speed_frac): 
+    _calibrate_stirrer(top_speed_frac, hw.stirrer_lagoon)
+
+def _calibrate_stirrer(top_speed_frac, stirrer):
     print(f'Restarting lagoon stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
-    ctl = pace_controller.StirrerController(hw.stirrer_lagoon, top_speed_frac, q, priority=1)
+    ctl = pace_controller.StirrerController(stirrer, top_speed_frac, q, priority=1)
     ctl.__bg__restart_motor()
     i = 0
     while not q.empty():
@@ -58,71 +57,89 @@ def calibrate_temp(target_temp):
     adjust_temp_interval_s = 1
     report_temp_every = 10
     num_temps_to_avg = 20
-    inc_temps = [0.0 for _ in range(num_temps_to_avg)]
+    inc_left_temps = [0.0 for _ in range(num_temps_to_avg)]
+    inc_right_temps = [0.0 for _ in range(num_temps_to_avg)]
     lagoon_temps = [0.0 for _ in range(num_temps_to_avg)]
-    inc_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
+    inc_left_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
+    inc_right_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
     lagoon_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
     
     print(f'Setting target temperature to {target_temp}C.')
-    inc_ctl = pace_controller.TempController(hw.inc_left_temp_sensor, hw.inc_left_heater, target_temp)
+    inc_left_ctl = pace_controller.TempController(hw.inc_left_temp_sensor, hw.inc_left_heater, target_temp)
+    inc_right_ctl = pace_controller.TempController(hw.inc_right_temp_sensor, hw.inc_right_heater, target_temp)
     lagoon_ctl = pace_controller.TempController(hw.temp_sensor_lagoon, hw.heater_lagoon, target_temp)
     i = 0
     while True:
-        inc_temps[i % num_temps_to_avg] = inc_ctl.current_temp()
+        inc_left_temps[i % num_temps_to_avg] = inc_left_ctl.current_temp()
+        inc_right_temps[i % num_temps_to_avg] = inc_right_ctl.current_temp()
         lagoon_temps[i % num_temps_to_avg] = lagoon_ctl.current_temp()
-        inc_temps_raw[i % num_temps_to_avg] = inc_ctl.current_temp_raw()
+        inc_left_temps_raw[i % num_temps_to_avg] = inc_left_ctl.current_temp_raw()
+        inc_right_temps_raw[i % num_temps_to_avg] = inc_right_ctl.current_temp_raw()
         lagoon_temps_raw[i % num_temps_to_avg] = lagoon_ctl.current_temp_raw()
         if i > 0  and i % report_temp_every == 0:
-            mean_inc, std_inc = compute_stats(inc_temps)
+            mean_inc_left, std_inc_left = compute_stats(inc_left_temps)
+            mean_inc_right, std_inc_right = compute_stats(inc_right_temps)
             mean_lagoon, std_lagoon = compute_stats(lagoon_temps) 
-            mean_raw_inc, std_raw_inc = compute_stats(inc_temps_raw)
+            mean_raw_inc_left, std_raw_inc_left = compute_stats(inc_left_temps_raw)
+            mean_raw_inc_right, std_raw_inc_right = compute_stats(inc_right_temps_raw)
             mean_raw_lagoon, std_raw_lagoon = compute_stats(lagoon_temps_raw)
             print(f'Measurement time {i*adjust_temp_interval_s}s.')
-            print(f'T(inc) =\t{mean_inc:.2f} (std={std_inc:.2f})\tT(lagoon) = \t{mean_lagoon:.2f} (std={std_lagoon:.2f})')
-            print(f'T_raw(inc) =\t{mean_raw_inc:.2f} (std={std_raw_inc:.2f})\tT_raw(lagoon) = \t{mean_raw_lagoon:.2f} (std={std_raw_lagoon:.2f})')
-        inc_ctl.__bg__maintain_temp()
+            print(f'T(inc_left) =\t{mean_inc_left:.2f} (std={std_inc_left:.2f})\tT(lagoon) = \t{mean_lagoon:.2f} (std={std_lagoon:.2f})\tT(inc_right) = \t{mean_inc_right:.2f} (std={std_inc_right:.2f})')
+            print(f'T_raw(inc_left) =\t{mean_raw_inc_left:.2f} (std={std_raw_inc_left:.2f})\tT_raw(lagoon) = \t{mean_raw_lagoon:.2f} (std={std_raw_lagoon:.2f})\tT_raw(inc_right) = \t{mean_raw_inc_right:.2f} (std={std_raw_inc_right:.2f})')
+        inc_left_ctl.__bg__maintain_temp()
+        inc_right_ctl.__bg__maintain_temp()
         lagoon_ctl.__bg__maintain_temp()
         time.sleep(adjust_temp_interval_s)
         i += 1
 
-   
-def calibrate_od(num_probes=5):
+def calibrate_od_inc_left(num_probes=5):
+    q = pace_controller.TaskQueue(clk)
+    stirrer = pace_controller.StirrerController(hw.inc_left_stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, priority=1)
+    _calibrate_od(num_probes, stirrer, hw.inc_left_led, hw.inc_left_od_sensor, q)
+
+
+def calibrate_od_inc_right(num_probes=5):
+    q = pace_controller.TaskQueue(clk)
+    stirrer = pace_controller.StirrerController(hw.inc_right_stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, priority=1)
+    _calibrate_od(num_probes, stirrer, hw.inc_right_led, hw.inc_right_od_sensor, q)
+
+
+def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):
     measure_od_interval_s = 5
     num_measurements_per_probe = 5
     measure_od_delay_s = 5
-    q = pace_controller.TaskQueue(clk)
-    stirrer = pace_controller.StirrerController(hw.inc_left_stirrer, hw_config.incubator_stirrer_top_speed_frac, q, priority=1)
+    
+    
     measurements = [[] for _ in range(num_probes)] 
     for num_probe in range(num_probes):
         # Give user time to switch out the probe.
         print(f'Insert probe {num_probe}')
         for t in range(measure_od_delay_s, 0, -1):
             print(f'Measruing OD in {t}s')
-            time.sleep(1)
+            time.sleep(0.3)
 
         # Start the stirrer
-        stirrer.__bg__restart_motor()
-        while not q.empty():
-            q.cycle()
+        stirrer_ctl.__bg__restart_motor()
+        while not task_queue.empty():
+            task_queue.cycle()
             print('Starting the motor...')
 
         # Measure OD
         for num_measurement in range(num_measurements_per_probe):
-            hw.inc_left_led.on()
+            led.on()
             time.sleep_ms(pace_controller.ODController.TIME_OD_DELAY)
-            raw = hw.inc_left_od_sensor.read_raw()
+            raw = sensor.read_raw()
             measurements[num_probe].append(raw)
-            hw.inc_left_led.off()
+            led.off()
             time.sleep(measure_od_interval_s)
             print(f'Probe {num_probe+1}/{num_probes} Measurement {num_measurement+1}/{num_measurements_per_probe} RAW={raw:.2f}')
         
-        hw.inc_left_stirrer.off()
+        stirrer_ctl._stirrer.off()
 
     with open('tmp/od_calibration.csv', 'w') as f: 
         for probe_measurements in measurements:
             f.write(','.join(map(str, probe_measurements)))
             f.write('\n')
-
 
 def calibrate_pump_incubator_to_lagoon(num_steps=10000): 
     freq = 1000

@@ -12,43 +12,109 @@ from sklearn.linear_model import LinearRegression
 
 import find_pico
 from diagnostics import diagnostics_stepper, diagnostics_od
-from calibration import calibration_inc_stirrer, calibration_induction_stepper, calibration_bact_stepper, calibration_lagoon_stirrer, calibration_od, calibration_temp
 
 DIR_DIAGNOSTICS = Path('diagnostics')
 DIR_TMP = Path('tmp')
 CFG_EVOTOOL = Path('.evotool.json')
 
-CALIBRATION_OD_MEASURED = 'od_measured.csv'
-CALIBRATION_OD_EXPECTED = 'od_expected.txt'
+CALIBRATION_INC_LEFT_OD_MEASURED = 'inc_left_od_measured.csv'
+CALIBRATION_INC_LEFT_OD_EXPECTED = 'inc_left_od_expected.txt'
+CALIBRATION_INC_RIGHT_OD_MEASURED = 'inc_right_od_measured.csv'
+CALIBRATION_INC_RIGHT_OD_EXPECTED = 'inc_right_od_expected.txt'
+
 CALIBRATION_INDUCTION_STEPPER_DIRECTION = 'induction_stepper_rotation_direction.txt'
 CALIBRATION_BACT_STEPPER_NUM_STEPS = 'bact_stepper_num_steps.txt'
-CALIBRATION_INC_STIRRER_SPEED = 'inc_stirrer_speed_frac.txt'
+CALIBRATION_INC_LEFT_STIRRER_SPEED = 'inc_left_stirrer_speed_frac.txt'
+CALIBRATION_INC_RIGHT_STIRRER_SPEED = 'inc_right_stirrer_speed_frac.txt'
 CALIBRATION_LAGOON_STIRRER_SPEED = 'lagoon_stirrer_speed_frac.txt'
 
 ## Calibration commands 
-def run_inc_stirrer_calibration(speed_frac, port): 
-    calibration_inc_stirrer.generate_script(speed_frac, tmp_dir=DIR_TMP, script_name='calibrate_inc_stirrer.py')
-    run_script(DIR_TMP / 'calibrate_inc_stirrer.py', port)
+def run_inc_left_stirrer_calibration(speed_frac, port): 
+    script_content = f"""from calibration import stop_all, calibrate_inc_left_stirrer
+
+stop_all()
+calibrate_inc_left_stirrer(top_speed_frac={speed_frac})
+"""
+    script = DIR_TMP / 'calibrate_inc_left_stirrer.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
+
+def run_inc_right_stirrer_calibration(speed_frac, port):
+    script_content = f"""from calibration import stop_all, calibrate_inc_right_stirrer
+
+stop_all()
+calibrate_inc_right_stirrer(top_speed_frac={speed_frac})
+"""
+    script = DIR_TMP / 'calibrate_inc_right_stirrer.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
 
 def run_lagoon_stirrer_calibration(speed_frac, port):
-    calibration_lagoon_stirrer.generate_script(speed_frac, tmp_dir=DIR_TMP, script_name='calibrate_lagoon_stirrer.py')
-    run_script(DIR_TMP / 'calibrate_lagoon_stirrer.py', port)
+    script_content = f"""from calibration import stop_all, calibrate_lagoon_stirrer
 
-def run_od_calibration(num_probes, port): 
-    calibration_od.generate_script(num_probes, tmp_dir=DIR_TMP, script_name='calibrate_od.py')
-    run_script(DIR_TMP / 'calibrate_od.py', port)
+stop_all()
+calibrate_lagoon_stirrer(top_speed_frac={speed_frac})
+"""
+    script = DIR_TMP / 'calibrate_lagoon_stirrer.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
+
+
+def run_inc_left_od_calibration(num_probes, port): 
+    script_content = f"""from calibration import stop_all, calibrate_inc_left_od
+
+stop_all()
+calibrate_inc_left_od(num_probes={num_probes})"""
+    script = DIR_TMP / 'calibrate_inc_left_od.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
+
+def run_inc_right_od_calibration(num_probes, port): 
+    script_content = f"""from calibration import stop_all, calibrate_inc_right_od
+
+stop_all()
+calibrate_inc_right_od(num_probes={num_probes})"""
+    script = DIR_TMP / 'calibrate_inc_right_od.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
 
 def run_temp_calibration(target_temp, port):
-    calibration_temp.generate_script(target_temp, tmp_dir=DIR_TMP, script_name='calibrate_temp.py')
-    run_script(DIR_TMP / 'calibrate_temp.py', port)
+    script_content = f"""from calibration import stop_all, calibrate_temp
+
+stop_all()
+calibrate_temp({target_temp})
+"""
+    script = DIR_TMP / 'calibrate_temp.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
 
 def run_bact_stepper_calibration(num_steps, port): 
-    calibration_bact_stepper.generate_script(num_steps, tmp_dir=DIR_TMP, script_name='calibrate_bact_stepper.py')
-    run_script(DIR_TMP / 'calibrate_bact_stepper.py', port)
+    script_content = f"""from calibration import stop_all, calibrate_pump_incubator_to_lagoon
 
-def run_induction_stepper_calibration(rotation_deg, port):
-    calibration_induction_stepper.generate_script(rotation_deg, tmp_dir=DIR_TMP, script_name='calibrate_induction_stepper.py')
-    run_script(DIR_TMP / 'calibrate_induction_stepper.py', port)
+stop_all()
+calibrate_pump_incubator_to_lagoon(num_steps={num_steps})
+"""
+    script = DIR_TMP / 'calibrate_bact_stepper.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
+
+def run_induction_stepper_calibration(rotation_direction, port):
+    script_content = f"""from calibration import stop_all, calibrate_stepper
+
+stop_all()
+calibrate_stepper(rotation_dir={rotation_direction})
+"""
+    script = DIR_TMP / 'calibrate_induction_stepper.py'
+    with open(script, 'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
 
 def linear_fit_1d(df, x, y):
     X = df[[x]]  # Feature matrix
@@ -79,6 +145,20 @@ def compute_temp_calibration(measured_temps, target_temps):
     else: 
         print('Temperature not provided, re-using values from the old config.')
         return None, None
+    
+def compute_od_calibration(path_od_measured: Path, path_od_expected: Path):
+    if path_od_measured.exists() and path_od_expected.exists(): 
+        od_measured = pd.read_csv(path_od_measured).mean(axis=1)
+        with open(path_od_expected, 'r') as f: 
+            od_expected = list(map(float, f.readlines()))
+        vals = pd.DataFrame({'od': od_measured, 'expected': od_expected})
+        od_slope, od_intercept, pred = linear_fit_1d(od_measured, 'od', 'expected')
+        print(f'Inferred: OD = {od_slope:.2f} * RAW + {od_intercept:.2f}')
+        vals['predicted'] = pred
+        print(vals)
+        return od_slope, od_intercept
+    else:
+        return None, None
 
 def compute_new_config(calibration_folder, args, port):
     """ Computes new reactor config based on all calibrated values."""
@@ -86,45 +166,63 @@ def compute_new_config(calibration_folder, args, port):
         cfg = json.load(f)
 
     # re-use old calibration values.
-    inc_temp_slope, inc_temp_intercept = cfg['incubator_temp']['slope'], cfg['incubator_temp']['intercept']
+    inc_left_temp_slope, inc_left_temp_intercept = cfg['inc_left']['temp']['slope'], cfg['inc_right']['temp']['intercept']
+    inc_left_od_slope, inc_left_od_intercept = cfg['inc_left']['od']['slope'], cfg['inc_right']['od']['intercept']
+    inc_left_stirrer_top_speed_frac = cfg['inc_left']['stirrer_top_speed_frac']
+    
+    inc_right_temp_slope, inc_right_temp_intercept = cfg['inc_right']['temp']['slope'], cfg['inc_right']['temp']['intercept']
+    inc_right_od_slope, inc_right_od_intercept = cfg['inc_right']['od']['slope'], cfg['inc_right']['od']['intercept']
+    inc_right_stirrer_top_speed_frac = cfg['inc_right']['stirrer_top_speed_frac']
+    
     lagoon_temp_slope, lagoon_temp_intercept = cfg['lagoon_temp']['slope'], cfg['lagoon_temp']['intercept']
-    od_slope, od_intercept = cfg['incubator_od']['slope'], cfg['incubator_od']['intercept']
     bact_stepper_ml_per_step = cfg['bact_stepper_ml_per_step']
     lagoon_stirrer_top_speed_frac = cfg['lagoon_stirrer_top_speed_frac']
-    inc_stirrer_top_speed_frac = cfg['incubator_stirrer_top_speed_frac']
     induction_stepper_direction = cfg['induction_stepper_direction']
 
-    print('\n\n\nIncubator temperature sensor')
+    print('\n\n\nLeft Incubator temperature sensor')
     new_slope, new_intercept = compute_temp_calibration(args.inc_measured_temps, args.inc_target_temps)
     if new_slope is not None:
-        inc_temp_slope, inc_temp_intercept = new_slope, new_intercept
+        inc_left_temp_slope, inc_left_temp_intercept = new_slope, new_intercept
+
+    print('\n\n\nRight Incubator temperature sensor')
+    new_slope, new_intercept = compute_temp_calibration(args.inc_measured_temps, args.inc_target_temps)
+    if new_slope is not None:
+        inc_right_temp_slope, inc_right_temp_intercept = new_slope, new_intercept 
 
     print('\n\n\nLagoon temperature sensor')
     new_slope, new_intercept = compute_temp_calibration(args.lagoon_measured_temps, args.lagoon_target_temps)
     if new_slope is not None:
         lagoon_temp_slope, lagoon_temp_intercept = new_slope, new_intercept
     
-    print('\n\n\nOptical density calibration')
-    od_measured = calibration_folder / CALIBRATION_OD_MEASURED
-    od_expected = calibration_folder / CALIBRATION_OD_EXPECTED
-    if od_measured.exists() and od_expected.exists(): 
-        od_measured = pd.read_csv(od_measured).mean(axis=1)
-        with open(od_expected, 'r') as f: 
-            od_expected = list(map(float, f.readlines()))
-        vals = pd.DataFrame({'od': od_measured, 'expected': od_expected})
-        od_slope, od_intercept, pred = linear_fit_1d(od_measured, 'od', 'expected')
-        print(f'Inferred: OD = {od_slope:.2f} * RAW + {od_intercept:.2f}')
-        vals['predicted'] = pred
-        print(vals)
+    print('\n\n\nLeft incubator OD calibration')
+    new_slope, new_intercept = compute_od_calibration(calibration_folder / CALIBRATION_INC_LEFT_OD_MEASURED, calibration_folder / CALIBRATION_INC_LEFT_OD_EXPECTED)
+    if new_slope is not None:
+        inc_left_od_slope, inc_left_od_intercept = new_slope, new_intercept
     else:
         print('OD calibration not provided. Re-using old values.')
 
-    print('\n\n\nBacteria stirrer calibration')
-    inc_stirrer_top_speed = calibration_folder / CALIBRATION_INC_STIRRER_SPEED
-    if inc_stirrer_top_speed.exists(): 
-        with open(inc_stirrer_top_speed, 'r') as f: 
-            inc_stirrer_top_speed_frac = float(f.read())
-        print('Set new incubator stirrer top speed to:', inc_stirrer_top_speed_frac)
+    print('\n\n\nRight incubator OD calibration')
+    new_slope, new_intercept = compute_od_calibration(calibration_folder / CALIBRATION_INC_RIGHT_OD_MEASURED, calibration_folder / CALIBRATION_INC_RIGHT_OD_EXPECTED)
+    if new_slope is not None:
+        inc_right_od_slope, inc_right_od_intercept = new_slope, new_intercept
+    else:
+        print('OD calibration not provided. Re-using old values.')
+
+    print('\n\n\nLeft incubator stirrer calibration')
+    inc_left_stirrer_top_speed = calibration_folder / CALIBRATION_INC_LEFT_STIRRER_SPEED
+    if inc_left_stirrer_top_speed.exists(): 
+        with open(inc_left_stirrer_top_speed, 'r') as f: 
+            inc_left_stirrer_top_speed_frac = float(f.read())
+        print('Set new incubator stirrer top speed to:', inc_left_stirrer_top_speed_frac)
+    else:
+        print('Incubator stirrer calibration not provided. Re-using old values.')
+
+    print('\n\n\nRight incubator stirrer calibration')
+    inc_right_stirrer_top_speed = calibration_folder / CALIBRATION_INC_RIGHT_STIRRER_SPEED
+    if inc_right_stirrer_top_speed.exists():
+        with open(inc_right_stirrer_top_speed, 'r') as f: 
+            inc_right_stirrer_top_speed_frac = float(f.read())
+        print('Set new incubator stirrer top speed to:', inc_right_stirrer_top_speed_frac)
     else:
         print('Incubator stirrer calibration not provided. Re-using old values.')
     
@@ -156,14 +254,19 @@ def compute_new_config(calibration_folder, args, port):
         print('Induction stepper calibration not provided. Re-using old values.')
 
     new_cfg = cfg.copy()
-    new_cfg['incubator_temp']['slope'] = inc_temp_slope
-    new_cfg['incubator_temp']['intercept'] = inc_temp_intercept
+    new_cfg['inc_left']['temp']['slope'] = inc_left_temp_slope
+    new_cfg['inc_left']['temp']['intercept'] = inc_left_temp_intercept
+    new_cfg['inc_left']['od']['slope'] = inc_left_od_slope
+    new_cfg['inc_left']['od']['intercept'] = inc_left_od_intercept
+    new_cfg['inc_left']['stirrer_top_speed_frac'] = inc_left_stirrer_top_speed_frac
+    new_cfg['inc_right']['temp']['slope'] = inc_right_temp_slope
+    new_cfg['inc_right']['temp']['intercept'] = inc_right_temp_intercept
+    new_cfg['inc_right']['od']['slope'] = inc_right_od_slope
+    new_cfg['inc_right']['od']['intercept'] = inc_right_od_intercept
+    new_cfg['inc_right']['stirrer_top_speed_frac'] = inc_right_stirrer_top_speed_frac
     new_cfg['lagoon_temp']['slope'] = lagoon_temp_slope
     new_cfg['lagoon_temp']['intercept'] = lagoon_temp_intercept
-    new_cfg['incubator_od']['slope'] = od_slope
-    new_cfg['incubator_od']['intercept'] = od_intercept
     new_cfg['bact_stepper_ml_per_step'] = bact_stepper_ml_per_step
-    new_cfg['incubator_stirrer_top_speed_frac'] = inc_stirrer_top_speed_frac
     new_cfg['lagoon_stirrer_top_speed_frac'] = lagoon_stirrer_top_speed_frac
     new_cfg['induction_stepper_direction'] = induction_stepper_direction
 
@@ -284,18 +387,24 @@ if __name__ == '__main__':
     calibrate_hardware_parsers = parser_calibrate.add_subparsers(dest='part')
     parser_calibrate_new = calibrate_hardware_parsers.add_parser('new', help='Calibrate new reactor')
     parser_calibrate_new.add_argument('folder', type=str, help='Folder where the calibration data will be stored')
-    parser_calibrate_inc_stirrer =  calibrate_hardware_parsers.add_parser('inc_stirrer', help='Calibrate incubator stirrer speed')
-    parser_calibrate_inc_stirrer.add_argument('speed_frac', type=float, help='Speed fraction, from 0 to 1')
+
+    parser_calibrate_inc_left_stirrer =  calibrate_hardware_parsers.add_parser('inc_left_stirrer', help='Calibrate left incubator stirrer speed')
+    parser_calibrate_inc_left_stirrer.add_argument('speed_frac', type=float, help='Speed fraction, from 0 to 1')
     parser_calibrate_lagoon_stirrer = calibrate_hardware_parsers.add_parser('lagoon_stirrer', help='Calibrate lagoon stirrer speed')
     parser_calibrate_lagoon_stirrer.add_argument('speed_frac', type=float, help='Speed fraction, from 0 to 1')
+    parser_calibrate_inc_right_stirrer = calibrate_hardware_parsers.add_parser('inc_right_stirrer', help='Calibrate right incubator stirrer speed')
+    parser_calibrate_inc_right_stirrer.add_argument('speed_frac', type=float, help='Speed fraction, from 0 to 1')
 
-    parser_calibrate_od = calibrate_hardware_parsers.add_parser('od', help='Calibrate optical density sensors')
-    parser_calibrate_od.add_argument('expected_ods', type=float, nargs='+', help='Expected OD values for each probe')
+
+    parser_calibrate_inc_left_od = calibrate_hardware_parsers.add_parser('inc_left_od', help='Calibrate optical density sensors on left incubator')
+    parser_calibrate_inc_left_od.add_argument('expected_ods', type=float, nargs='+', help='Expected OD values for each probe')
+    parser_calibrate_inc_right_od = calibrate_hardware_parsers.add_parser('inc_right_od', help='Calibrate optical density sensors on right incubator')
+    parser_calibrate_inc_right_od.add_argument('expected_ods', type=float, nargs='+', help='Expected OD values for each probe')
 
     parser_calibrate_temp = calibrate_hardware_parsers.add_parser('temp', help='Calibrate temperature sensors')
     parser_calibrate_temp.add_argument('target_temp', type=float, help='Target temperature for calibration')
 
-    parser_calibrate_bact_stepper = calibrate_hardware_parsers.add_parser('bact_stepper', help='Calibrate step volume of the bacteria stepper motor')
+    parser_calibrate_bact_stepper = calibrate_hardware_parsers.add_parser('bact_stepper', help='Calibrate step volume of the bacteria stepper motor.\nNote: we only use stepper of the left incubator.')
     parser_calibrate_bact_stepper.add_argument('--num_steps', type=int, default=10000, help='Number of steps to use during calibration')
     
     parser_calibrate_induction_stepper = calibrate_hardware_parsers.add_parser('induction_stepper', help='Calibrate roation direction of the induction stepper motor. Either +1 or -1')
@@ -311,7 +420,7 @@ if __name__ == '__main__':
     parser_calibrate_new_config.add_argument('--lagoon_target_temps', type=float, nargs='+', default=None, 
                                              help='Target temperatures for the lagoon')
     parser_calibrate_new_config.add_argument('--inc_stepper_volume', type=float, default=None, 
-                                             help='Volume of liquid dispensed by the bacteria stepper motor')
+                                             help='Volume of liquid dispensed by the bacteria stepper motor.')
     
     args = parser.parse_args()
 
@@ -358,7 +467,7 @@ if __name__ == '__main__':
                 Path(args.folder).mkdir(exist_ok=True, parents=True)
                 cfg['calibration_folder'] = args.folder
                 json.dump(cfg, cfg_file)
-                get_ampy('config/reactor_config.json', args.folder + '/old_reactor_config.json', port)
+                get_ampy('configs/reactor_config.json', args.folder + '/old_reactor_config.json', port)
                 exit(0) # TODO: refactor
         else: 
             if calibration_folder is None: 
@@ -369,19 +478,29 @@ if __name__ == '__main__':
                 exit(1)
             else: 
                 print('Using calibration folder:', calibration_folder)
-        if args.part == 'inc_stirrer': 
-            run_inc_stirrer_calibration(args.speed_frac, port)
-            with open(calibration_folder / CALIBRATION_INC_STIRRER_SPEED, 'w') as speed_file:
+        if args.part == 'inc_left_stirrer': 
+            run_inc_left_stirrer_calibration(args.speed_frac, port)
+            with open(calibration_folder / CALIBRATION_INC_LEFT_STIRRER_SPEED, 'w') as speed_file:
+                speed_file.write(str(args.speed_frac))
+        elif args.part == 'inc_right_stirrer':
+            run_inc_right_stirrer_calibration(args.speed_frac, port)
+            with open(calibration_folder / CALIBRATION_INC_RIGHT_STIRRER_SPEED, 'w') as speed_file:
                 speed_file.write(str(args.speed_frac))
         elif args.part == 'lagoon_stirrer':
             run_lagoon_stirrer_calibration(args.speed_frac, port)
             with open(calibration_folder / CALIBRATION_LAGOON_STIRRER_SPEED, 'w') as speed_file:
                 speed_file.write(str(args.speed_frac))
-        elif args.part == 'od': 
+        elif args.part == 'inc_left_od': 
             expected_ods = args.expected_ods
-            run_od_calibration(len(expected_ods), port)
-            get_ampy('tmp/od_calibration.csv', calibration_folder / CALIBRATION_OD_MEASURED, port)
-            with open(calibration_folder / CALIBRATION_OD_EXPECTED, 'w') as ods_file:
+            run_inc_left_od_calibration(len(expected_ods), port)
+            get_ampy('tmp/od_calibration.csv', calibration_folder / CALIBRATION_INC_LEFT_OD_MEASURED, port)
+            with open(calibration_folder / CALIBRATION_INC_LEFT_OD_EXPECTED, 'w') as ods_file:
+                ods_file.write('\n'.join(map(str, expected_ods)))
+        elif args.part == 'inc_right_od':
+            expected_ods = args.expected_ods
+            run_inc_right_od_calibration(len(expected_ods), port)
+            get_ampy('tmp/od_calibration.csv', calibration_folder / CALIBRATION_INC_RIGHT_OD_MEASURED, port)
+            with open(calibration_folder / CALIBRATION_INC_RIGHT_OD_EXPECTED, 'w') as ods_file:
                 ods_file.write('\n'.join(map(str, expected_ods)))
         elif args.part == 'temp': 
             run_temp_calibration(args.target_temp, port)
