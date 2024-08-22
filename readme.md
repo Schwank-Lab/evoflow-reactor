@@ -25,77 +25,77 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 
 ### Reactor diagnostics 
 
-1. Run `python setup-tool/evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
-2. Run `python setup-tool/evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
-3. Run `python setup-tool/evotool.py diagnose heaters`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
-4. Run `python setup-tool/evotool.py diagnose od_left`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-5. Run `python setup-tool/evotool.py diagnose od_right`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-6. Run `python setup-tool/evotool.py diagnose stepper`. You should observe stepper shaft rotating.
+1. Run `python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
+2. Run `python evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
+3. Run `python evotool.py diagnose heaters`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
+4. Run `python evotool.py diagnose od_left`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
+5. Run `python evotool.py diagnose od_right`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
+6. Run `python evotool.py diagnose stepper`. You should observe stepper shaft rotating.
 
 ### Reactor calibration 
 
-1. Run `export EXP_NAME=your_experiment_name`, e.g. `export EXP_NAME=20240405_bravo`
-2. Run `mkdir -p experiments/$EXP_NAME`  
-3. Run `ampy -p $PICO_PORT get configs/reactor_config.json experiments/$EXP_NAME/old_reactor_config.json`.
+1. Run `python evotool calibrate new <your_experiment_name>` (e.g. `python evotool calibrate new calibration_logs/20240405_bravo`) to start a new calibration session.
 
-Open a new terminal window and run the following commands: 
-1. Start a jupyter server by running `poetry run jupyter lab`. This should launch the browser with a jupyter instance.
-2. Navigate to calibration/calibration.ipynb
-
-Now, go back to the previous terminal tab and continue executing commands there. 
-
-#### Temperature Calibration
-
-To calibrate the temperature, we need to heat both lagoon and tubribostat to a pre-defined temperature and then measure the actual temperature. 
-Recommended set of temperature to use are: 27, 30, 35, 39
-
-1. Run `python calibration/calibration_temp.py YOUR_TEMP`
-2. Run `ampy -p $PICO_PORT run temp/calibrate_temp.py`
-3. Monitor the output, after you see that `T(inc)` and `T(lagoon)` have reached the defined temperature, measure the actual temperature in the glass tubes and note it in the jupyter notebook.
-
-#### OD Calibration 
-
-To calibrate OD, we need to measure ODs of the probes with the known OD value. We have such probes, use some of them. Recommended is OD0.1, OD0.4, OD0.6, OD0.8, OD1.0
-
-1. Run `ampy -p $PICO_PORT run calibration/calibration_od.py` and follow instructions.
-2. Run `ampy -p $PICO_PORT get tmp/od_calibration.csv experiments/$EXP_NAME/od.csv`
-
-#### Pump Calibration 
-
-The only pump we care about is the turbidostat -> lagoon pump. To calibrate it, we're going to pump a known volume.
-
-1. Attach tubing to the turbidostat -> lagoon pump (3rd pump). Add ~100ml of liquid into a bottle, dip the input tube into that bottle.
-2. Prime the tube by manually activating the pump, until the wholte tubing is filled water.
-3. Put the outlet into an empty bottle, measure the weight of the empty bottle beforehand.
-4. Run `ampy -p $PICO_PORT run calibration/calibration_pumps.py`
-5. Measure the volume after pumping is finished, write results to the jupyter notebook.
+Follow the instructions below to calibrate individual hardware parts. Note that you can choose to skip the calibration of a certain part, e.g. stirrers. In that case, the reactor config that is currently stored on the evoflow reactor will be used. If you would like to use values from the default config instead, run `python evotool calibrate new <your_experiment_name> --default_config`. 
 
 #### Stirrer Calibration 
 
-1. Put the probe with removed lid into the incubator stirrer.
-2. Run `python calibration/calibration_inc_stirrer.py 0.25`, where 0.25 is the fraction of the top motor speed used for steering. 
-3. Run `ampy -p $PICO_PORT run tmp/calibrate_inc_stirrer.py`
-4. Observe the vortex in the probe.
+1. Put a probe with removed lid into the incubator stirrer.
+2. Run `python evotool.py calibrate inc_right_stirrer <speed>`, e.g. `python evotool.py calibrate inc_right_stirrer 0.25`
+3. Observe the vortex in the probe.
 
-Same for the lagoon stirrer, but with commands `python calibration/calibration_lagoon_stirrer.py 0.25` and then `ampy -p $PICO_PORT run tmp/calibrate_lagoon_stirrer.py`
+To calibrate the stirrer speed of the right incubator and the lagoon, run `python evotool.py calibrate inc_right_stirrer <speed>` and `python evotool.py calibrate lagoon_stirrer <speed>` respectively.
 
-#### Stepper calibration 
+#### OD Calibration 
 
-We need to calibrate the direction of the stepper motor. 
+To calibrate OD, we need to measure ODs of the probes with the known OD value. We have such probes, use some of them. Recommended is 
 
-1. Run `python calibration/calibration_stepper.py 1`
-2. Run `ampy -p $PICO_PORT run tmp/calibrate_stepper.py`
-3. Observe the rotation of the stepper shaft, it should be turning counter-clockwise, when looked from the direction of the motor.  If that's not the case, execute two more commands: 
-4. Run `python calibration/calibration_stepper.py -1`
-5. Run `ampy -p $PICO_PORT run tmp/calibrate_stepper.py`
-6. Now the shaft should be turning in the correct direction.
+1. Run `python evotool.py calibrate inc_left_od <od1> <od2> <od3>` and follow instructions.
+2. Run `python evotool.py calibrate inc_right_od` and follow instructions.
+
+Recommended ODs to use are `python evotool.py calibrate inc_left_od 0.1 0.4 0.6 0.8 1.0`
 
 
+#### Stepper pump Calibration 
 
-#### Run calibration 
+We only calibrate the front left stepper pump and assume that the front right stepper pump works the same way.
 
-1. In the jupyter notebook, click on `Run All`
-2. Run `ampy -p $PICO_PORT put experiments/$EXP_NAME/new_reactor_config.json configs/reactor_config.json`
+1. Attach tubing to the inc_left -> lagoon pump (front left stepper pump). Add ~100ml of liquid into a bottle, dip the input tube into that bottle.
+2. Prime the tube by manually activating the pump, until the wholte tubing is filled water. TODO: this needs to be done. 
+3. Put the outlet into an empty bottle, measure the weight of the empty bottle beforehand.
+4. Run `python evotool.py calibrate bact_stepper`. This will run 10,000 steps, you can change the default by supplying `--num_steps <value>` flag. 
+5. Measure the volume after pumping is finished.
+
+Note: you can specify custom PWM value by using `--pwm <value>` flag, e.g. `python evotool.py calibrate bact_stepper 50 --pwm 1000`
+
+#### Induction Stepper calibration 
+
+We need to calibrate the direction of the induction stepper motor. 
+
+1. Run `python evotool.py calibrate induction_stepper 1`
+2. Observe the rotation of the stepper shaft, it should be turning counter-clockwise, when looked from the direction of the motor.
+ 
+If that's not the case, execute two more commands: 
+3. Run `python evotool.py calibrate induction_stepper 1`
+4. Now the shaft should be turning in the correct direction.
+
+#### Temperature Calibration
+
+To calibrate the temperature, we need to heat both lagoon and tubribostats to a pre-defined temperature and then measure the actual temperature. 
+Recommended set of temperature to use are: 27, 30, 35, 39
+
+1. Run `python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `python evotool.py calibrate temp 25`
+2. Run `ampy -p $PICO_PORT run temp/calibrate_temp.py`
+3. Monitor the output, after you see that `T(inc_left)`, `T(lagoon)` and `T(inc_right)` have all reached the defined temperature, measure the actual temperature in the glass tubes as well as the values `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)`
+4. Repeat for every target temperature.
+
+
+#### Calculate new config based on the calibrated values. 
+
+Run `python evotool.py calibrate compute_config`.
+
+If you calibrated bacterial stepper motor, provide the pumped volume that you measured by specifying `--bact_stepper_volume <volume_ml>`
+If you calibrated temperature, provide `--inc_left_measured_temps <t1> <t2> <t3>` for the temperatures you read from `T_raw(inc_left)` and `--inc_left_target_temps <t1> <t2> <t3>` for the temperatures you measured using an external therometer. Do the same for `--inc_right_measured_temps`, `--inc_right_target_temps`, `--lagoon_measured_temps`, and `--lagoon_target_temps`.
 
 
 ## Development
