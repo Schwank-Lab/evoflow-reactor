@@ -141,14 +141,19 @@ def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):
             f.write(','.join(map(str, probe_measurements)))
             f.write('\n')
 
-def calibrate_pump_incubator_to_lagoon(num_steps=10000): 
-    freq = 1000
-    time_s = num_steps / freq
+def calibrate_pump_incubator_to_lagoon(num_steps=10000, pwm=1000): 
+    time_s = num_steps / pwm
     print(f'Taking {num_steps} steps, should take {time_s:.2f} seconds')
     print('!!!! MAKE SURE THAT THE PUMP IS PRIMED !!!!')
-    hw.pump_inc_left_to_lagoon.set_frequency(1000)
+    hw.pump_inc_left_to_lagoon.set_frequency(pwm)
     hw.pump_inc_left_to_lagoon.on()
-    time.sleep(time_s)
+    report_every_s = 3
+    n_intervals = int(time_s // report_every_s)
+    for i in range(n_intervals):
+        time.sleep(report_every_s)
+        print(f'{(i+1)*report_every_s}/{time_s}s')
+        
+    time.sleep(time_s - n_intervals * report_every_s)
     hw.pump_inc_left_to_lagoon.off()
 
 

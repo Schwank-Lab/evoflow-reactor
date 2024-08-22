@@ -101,11 +101,11 @@ calibrate_temp({target_temp})
         script_file.write(script_content)
     run_script(script, port)
 
-def run_bact_stepper_calibration(num_steps, port): 
+def run_bact_stepper_calibration(num_steps, pwm, port): 
     script_content = f"""from calibration import stop_all, calibrate_pump_incubator_to_lagoon
 
 stop_all()
-calibrate_pump_incubator_to_lagoon(num_steps={num_steps})
+calibrate_pump_incubator_to_lagoon(num_steps={num_steps}, pwm={pwm})
 """
     script = DIR_TMP / 'calibrate_bact_stepper.py'
     with open(script, 'w') as script_file:
@@ -414,6 +414,7 @@ if __name__ == '__main__':
 
     parser_calibrate_bact_stepper = calibrate_hardware_parsers.add_parser('bact_stepper', help='Calibrate step volume of the bacteria stepper motor.\nNote: we only use stepper of the left incubator.')
     parser_calibrate_bact_stepper.add_argument('--num_steps', type=int, default=10000, help='Number of steps to use during calibration')
+    parser_calibrate_bact_stepper.add_argument('--pwm', type=int, default=1000, help='PWM frequency for the stepper motor')
     
     parser_calibrate_induction_stepper = calibrate_hardware_parsers.add_parser('induction_stepper', help='Calibrate roation direction of the induction stepper motor. Either +1 or -1')
     parser_calibrate_induction_stepper.add_argument('rotation_direction', type=int, choices=[+1, -1], help='Rotation direction of the induction stepper motor, either +1 or -1')
@@ -520,7 +521,7 @@ if __name__ == '__main__':
         elif args.part == 'temp': 
             run_temp_calibration(args.target_temp, port)
         elif args.part == 'bact_stepper': 
-            run_bact_stepper_calibration(args.num_steps, port)
+            run_bact_stepper_calibration(args.num_steps, args.pwm, port)
             with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'w') as steps_file:
                 steps_file.write(str(args.num_steps))
         elif args.part == 'induction_stepper': 
