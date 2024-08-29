@@ -216,16 +216,16 @@ class Hardware:
         # left incubator
 
         self.inc_left_led = Pin(2, Pin.OUT, value=0)
-        self.inc_left_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)), config.incubator_od_convert)
-        self.inc_left_temp_sensor = TempSensor(Pin(22, Pin.IN), config.incubator_temp_convert)
+        self.inc_left_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)), config.inc_left.od_convert)
+        self.inc_left_temp_sensor = TempSensor(Pin(22, Pin.IN), config.inc_left.temp_convert)
         self.inc_left_heater = Pin(7, Pin.OUT, value=0)
         self.inc_left_stirrer = Stirrer(Pin(0, Pin.OUT))
 
         # right incubator
 
         self.inc_right_led = Pin(3,  Pin.OUT, value=0)
-        self.inc_right_od_sensor = ODSensor(ADC(Pin(28, Pin.IN)), config.incubator_od_convert)
-        self.inc_right_temp_sensor = TempSensor(Pin(16, Pin.IN), config.incubator_temp_convert)
+        self.inc_right_od_sensor = ODSensor(ADC(Pin(28, Pin.IN)), config.inc_right.od_convert)
+        self.inc_right_temp_sensor = TempSensor(Pin(16, Pin.IN), config.inc_right.temp_convert)
         self.inc_right_heater = Pin(15, Pin.OUT, value=0)
         self.inc_right_stirrer = Stirrer(Pin(6, Pin.OUT))
 

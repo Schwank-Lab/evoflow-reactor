@@ -42,15 +42,6 @@ class HardwareConfig:
         self.induction_stepper_direction = config['induction_stepper_direction'] # 1 or -1
         self.bact_stepper_ml_per_step = config['bact_stepper_ml_per_step']
 
-    
-    def incubator_od_convert(self, measurement): 
-        intercept, slope = self._config['incubator_od']['intercept'], self._config['incubator_od']['slope']
-        return slope * measurement + intercept
-    
-    def incubator_temp_convert(self, measurement): 
-        intercept, slope = self._config['incubator_temp']['intercept'], self._config['incubator_temp']['slope']
-        return slope * measurement + intercept
-    
     def lagoon_temp_convert(self, measurement): 
         intercept, slope = self._config['lagoon_temp']['intercept'], self._config['lagoon_temp']['slope']
         return slope * measurement + intercept

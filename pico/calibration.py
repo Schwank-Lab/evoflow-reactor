@@ -84,7 +84,7 @@ def calibrate_temp(target_temp):
             mean_raw_inc_right, std_raw_inc_right = compute_stats(inc_right_temps_raw)
             mean_raw_lagoon, std_raw_lagoon = compute_stats(lagoon_temps_raw)
             print(f'Measurement time {i*adjust_temp_interval_s}s.')
-            print(f'T(inc_left) =\t{mean_inc_left:.2f} (std={std_inc_left:.2f})\tT(lagoon) = \t{mean_lagoon:.2f} (std={std_lagoon:.2f})\tT(inc_right) = \t{mean_inc_right:.2f} (std={std_inc_right:.2f})')
+            print(f'T(inc_left) =\t\t{mean_inc_left:.2f} (std={std_inc_left:.2f})\tT(lagoon) = \t\t{mean_lagoon:.2f} (std={std_lagoon:.2f})\tT(inc_right) = \t\t{mean_inc_right:.2f} (std={std_inc_right:.2f})')
             print(f'T_raw(inc_left) =\t{mean_raw_inc_left:.2f} (std={std_raw_inc_left:.2f})\tT_raw(lagoon) = \t{mean_raw_lagoon:.2f} (std={std_raw_lagoon:.2f})\tT_raw(inc_right) = \t{mean_raw_inc_right:.2f} (std={std_raw_inc_right:.2f})')
         inc_left_ctl.__bg__maintain_temp()
         inc_right_ctl.__bg__maintain_temp()

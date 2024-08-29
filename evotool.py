@@ -16,6 +16,7 @@ from diagnostics import diagnostics_stepper, diagnostics_od
 
 DIR_DIAGNOSTICS = Path('diagnostics')
 DIR_TMP = Path('tmp')
+DIR_TMP.mkdir(exist_ok=True)    
 CFG_EVOTOOL = Path('.evotool.json')
 
 CALIBRATION_INC_LEFT_OD_MEASURED = 'inc_left_od_measured.csv'
@@ -487,7 +488,7 @@ if __name__ == '__main__':
                 exit(0) # TODO: refactor
         else: 
             if calibration_folder is None: 
-                print('Please run `evotool calibrate new <folder>` first')
+                print('Please run `python evotool.py calibrate new <folder>` first')
                 exit(1)
             if not calibration_folder.exists():
                 print(f'Calibration folder {calibration_folder} does not exist. Please run `evotool calibrate new <folder>`')
