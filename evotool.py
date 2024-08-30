@@ -9,6 +9,10 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 import serial.tools.list_ports
 import shutil
+from evoflow_db.idec import Reactor
+from evoflow_db import idec_engine
+from sqlalchemy.orm import Session
+from sqlalchemy import select, func
 
 
 
@@ -321,12 +325,14 @@ def run_ampy(command, port):
     if res.returncode != 0: 
         print(f'Error running command: {res.stderr}')
 
+
 def get_ampy(pico_path, local_path, port): 
     ampy_command = f'ampy -p {port} get {pico_path} {local_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
     if res.returncode != 0: 
         print(f'Error running command: {res.stderr}')
+
 
 def put_ampy(local_path, pico_path, port):
     ampy_command = f'ampy -p {port} put {local_path} {pico_path}'
@@ -335,8 +341,25 @@ def put_ampy(local_path, pico_path, port):
     if res.returncode != 0: 
         print(f'Error running command: {res.stderr}')
 
+
 def rm_ampy(remote_path, port): 
     ampy_command = f'ampy -p {port} rm {remote_path}'
+    print(f'Running command: {ampy_command}')
+    res = subprocess.run(ampy_command, shell=True)
+    if res.returncode != 0: 
+        print(f'Error running command: {res.stderr}')
+
+
+def rmdir_ampy(remote_path, port):
+    ampy_command = f'ampy -p {port} rmdir {remote_path}'
+    print(f'Running command: {ampy_command}')
+    res = subprocess.run(ampy_command, shell=True)
+    if res.returncode != 0: 
+        print(f'Error running command: {res.stderr}')
+
+
+def mkdir_ampy(remote_path, port):
+    ampy_command = f'ampy -p {port} mkdir {remote_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
     if res.returncode != 0: 
@@ -351,7 +374,59 @@ def load_evotool_config():
             return json.loads(contents)
         else:
             return {}
-        
+
+
+def check_reactor_name_exists_in_db(reactor_name):
+    with Session(idec_engine()) as session:
+        db_reactor_name = session.execute(select(Reactor.name)
+                                          .where(Reactor.name.ilike(reactor_name))).fetchall()
+        session.commit()
+        return len(db_reactor_name) > 0
+
+
+def create_reactor_db_entry(reactor_name):
+    if check_reactor_name_exists_in_db(reactor_name):
+        raise RuntimeError("This name already exists in db! Change it and try again")
+
+    reactor = Reactor(name=reactor_name, network_id='0.0.0.0', reactor_config=[], experiment=[])
+    with Session(idec_engine()) as session: 
+        session.add(reactor)
+        session.commit()
+        return reactor.reactor_id
+    
+
+def generate_network_config(reactor_id):
+    with open('pico/configs/default-network_config.json', 'r') as f:
+        network_config = json.load(f) 
+        network_config['reactor_id'] = reactor_id
+    return network_config
+
+
+def setup_new_reactor(reactor_name, reactor_id, port):
+    if reactor_id is None: 
+        new_reactor_id = create_reactor_db_entry(args.reactor_name)
+        print(f'Reactor create with id {new_reactor_id}')
+    else: 
+        new_reactor_id = reactor_id
+        print(f'Using existing reactor with id {new_reactor_id}')
+    
+    network_config = generate_network_config(reactor_id=new_reactor_id) 
+    temp_path_network_config = DIR_TMP / 'network_config.json'
+    with open(temp_path_network_config, 'w') as nw_file:
+        json.dump(network_config, nw_file)
+    
+    rmdir_ampy('/', port)
+    mkdir_ampy('/configs', port)
+    mkdir_ampy('/logs', port)
+    mkdir_ampy('/state', port)
+    mkdir_ampy('/tmp', port)
+    put_ampy(temp_path_network_config, '/configs/network_config.json', port)
+    put_ampy('pico/configs/default-reactor_config.json', '/configs/reactor_config.json', port)
+    put_ampy('pico/configs/default-experiment_config.json', '/configs/experiment_config.json', port)
+    put_ampy('pico/configs/default-reactor_state.json', '/state/reactor_state.json', port)
+    put_ampy('libs', '/libs', port)
+
+    
 
 def deploy(scripts: list[str], port: str, dev_mode: bool):
     # copy all python scripts. 
@@ -382,8 +457,12 @@ if __name__ == '__main__':
     command_parsers = parser.add_subparsers(dest='command')
 
     command_parsers.add_parser('stop', help='Stop all reactor hardware')
-    deploy_parser = command_parsers.add_parser('deploy', help='Deploy reactor software')
 
+    init_parser = command_parsers.add_parser('init', help='Initialize a new reactor')
+    init_parser.add_argument('reactor_name', type=str, help='The name of the reactor to be created')
+    init_parser.add_argument('--reactor_id', type=int, help='The ID of an existing reactor to use', default=None)
+
+    deploy_parser = command_parsers.add_parser('deploy', help='Deploy reactor software')
     deploy_parser.add_argument('--dev', action='store_true', help='If specified, main.py will be stored on pico as dev_main.py, to prevent auto-run')
     deploy_parser.add_argument('scripts', type=str, nargs='+', help="Scripts to deploy, 'all' for all")
 
@@ -464,9 +543,10 @@ if __name__ == '__main__':
         # TODO: try to communicate with pico.
     if args.command == 'stop': 
         run_script(DIR_DIAGNOSTICS / 'diagnostics_stop.py', port)
+    elif args.command == 'init':
+        setup_new_reactor(args.reactor_name, args.reactor_id, port)
     elif args.command == 'deploy': 
         deploy(args.scripts, port,  args.dev)
-
     elif args.command == 'diagnose':
         if args.part == 'pumps':
             run_script(DIR_DIAGNOSTICS / 'diagnostics_pumps.py', port)
