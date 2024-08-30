@@ -22,12 +22,12 @@ STIRRERS = [
 
 PUMPS = [
     ('pump_medium_to_inc_left', hw.pump_medium_to_inc_left),
-    ('pump_incubator_to_waste', hw.pump_inc_left_to_waste),
-    ('pump_incubator_to_lagoon', hw.pump_inc_left_to_lagoon),
+    ('pump_inc_left_to_waste', hw.pump_inc_left_to_waste),
+    ('pump_inc_left_to_lagoon', hw.pump_inc_left_to_lagoon),
     ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste),
+    ('pump_inc_right_to_lagoon', hw.pump_inc_right_to_lagoon),
+    ('pump_inc_right_to_waste', hw.pump_inc_right_to_waste),
     ('pump_medium_to_inc_right', hw.pump_medium_to_inc_right),
-    ('stepper_front_left', hw.stepper_front_left),
-    ('stepper_front_right', hw.stepper_front_right),
 ]
 
 HEATERS = [

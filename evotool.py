@@ -249,8 +249,17 @@ def compute_new_config(calibration_folder, args, port):
             bact_stepper_num_steps = float(f.read())
         bact_stepper_ml_per_step = args.bact_stepper_volume / bact_stepper_num_steps
         print(f'Inferred bacteria stepper volume per step = {bact_stepper_ml_per_step:.6f}mL')
+        pwm_prediction = pd.DataFrame({'vol_per_h': [7, 14, 21]})
+        pwm_prediction['required_pwm'] = pwm_prediction['vol_per_h'] / 3600 / bact_stepper_ml_per_step
+        pwm_prediction['required_pwm'] = pwm_prediction['required_pwm'].apply(lambda x: int(np.ceil(x))).astype(int)
+        print('PWM required for different flow rates:')
+        print(pwm_prediction)
+        if pwm_prediction.loc[2, 'required_pwm'] > 10000: 
+            print('Warning: PWM required to achieve 21mL/h is too high. Consider adjusting the tubing.')
+        if pwm_prediction.loc[0, 'required_pwm'] < 100:
+            print('Warning: PWM required to achieve 7mL/h is too low. Consider adjusting the tubing.')
     else:
-        print('Bacteria stepper calibration not provided. Re-using old values. Make sure to set --inc_stepper_volume flag.')
+        print('Bacteria stepper calibration not provided. Re-using old values. Make sure to set --bact_stepper_volume flag.')
     
     print('\n\n\nInduction stepper calibration')
     induction_stepper_dir_file = calibration_folder / CALIBRATION_INDUCTION_STEPPER_DIRECTION
