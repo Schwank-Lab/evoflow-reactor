@@ -1,8 +1,23 @@
 {
-    "target_od": 0.5,
-    "lagoon_flow_rate": 0,
-    "lagoon_volume": 7,
-    "arabinose_stock_concentration": 2000,
-    "arabinose_target_concentration": 0,
+    "inc_left": {
+        "use": true,
+        "target_od": 0.7,
+        "target_temp": 37
+
+    },
+    "inc_right": {
+        "use": true,
+        "target_od": 0.7,
+        "target_temp": 37
+    },
+    "lagoon": {
+        "target_temp": 37,
+        "volume": 7,
+        "flow_rate": 0, 
+        "inc_left_frac": 0.5, 
+        "inc_right_frac": 0.5,
+        "arabinose_stock_concentration": 2000,
+        "arabinose_target_concentration": 0
+    },
     "experiment_id": -1
 }

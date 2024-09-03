@@ -210,25 +210,42 @@ class StepperMotor:
                 time.sleep_ms(1)
 
 
+class Incubator: 
+
+    def __init__(self, led, od_sensor, temp_sensor, heater, stirrer, medium_pump, waste_pump):
+        self.led = led
+        self.od_sensor = od_sensor
+        self.temp_sensor = temp_sensor
+        self.heater = heater
+        self.stirrer = stirrer
+        self.medium_pump = medium_pump
+        self.waste_pump = waste_pump
+
+
 class Hardware:
 
     def __init__(self, config: HardwareConfig): 
 
         # left incubator
+        self.inc_left = Incubator(
+            led=Pin(2, Pin.OUT, value=0),
+            od_sensor=ODSensor(ADC(Pin(27, Pin.IN)), config.inc_left.od_convert),
+            temp_sensor=TempSensor(Pin(22, Pin.IN), config.inc_left.temp_convert),
+            heater=Pin(7, Pin.OUT, value=0),
+            stirrer=Stirrer(Pin(0, Pin.OUT)),
+            medium_pump=Pump(Pin(18, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac),
+            waste_pump=Pump(Pin(17, Pin.OUT, value=0), mode=Pump.MODE_PIN)
+        )
 
-        self.inc_left_led = Pin(2, Pin.OUT, value=0)
-        self.inc_left_od_sensor = ODSensor(ADC(Pin(27, Pin.IN)), config.inc_left.od_convert)
-        self.inc_left_temp_sensor = TempSensor(Pin(22, Pin.IN), config.inc_left.temp_convert)
-        self.inc_left_heater = Pin(7, Pin.OUT, value=0)
-        self.inc_left_stirrer = Stirrer(Pin(0, Pin.OUT))
-
-        # right incubator
-
-        self.inc_right_led = Pin(3,  Pin.OUT, value=0)
-        self.inc_right_od_sensor = ODSensor(ADC(Pin(28, Pin.IN)), config.inc_right.od_convert)
-        self.inc_right_temp_sensor = TempSensor(Pin(16, Pin.IN), config.inc_right.temp_convert)
-        self.inc_right_heater = Pin(15, Pin.OUT, value=0)
-        self.inc_right_stirrer = Stirrer(Pin(6, Pin.OUT))
+        self.inc_right = Incubator(
+            led=Pin(3, Pin.OUT, value=0),
+            od_sensor=ODSensor(ADC(Pin(28, Pin.IN)), config.inc_right.od_convert),
+            temp_sensor=TempSensor(Pin(16, Pin.IN), config.inc_right.temp_convert),
+            heater=Pin(15, Pin.OUT, value=0),
+            stirrer=Stirrer(Pin(6, Pin.OUT)),
+            medium_pump=Pump(Pin(21, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac),
+            waste_pump=Pump(Pin(20, Pin.OUT, value=0), mode=Pump.MODE_PIN)
+        )
 
         # lagoon 
 
@@ -238,10 +255,6 @@ class Hardware:
 
         # pumps 
 
-        self.pump_medium_to_inc_left = Pump(Pin(18, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
-        self.pump_inc_left_to_waste = Pump(Pin(17, Pin.OUT, value=0), mode=Pump.MODE_PIN)
-        self.pump_medium_to_inc_right = Pump(Pin(21, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac)
-        self.pump_inc_right_to_waste = Pump(Pin(20, Pin.OUT, value=0), mode=Pump.MODE_PIN)
         self.pump_inc_left_to_lagoon = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), 
                                                       dir_pin=Pin(11, Pin.OUT, value=0), mode=TMC2208Stepper.MODE_PWM)
         self.pump_inc_right_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))

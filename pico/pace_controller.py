@@ -1,4 +1,4 @@
-from hardware_config import HardwareConfig
+from hardware_config import HardwareConfig, IncubatorConfig
 from logger import ConsoleLogger
 
 _logger = None 
@@ -163,20 +163,29 @@ class PaceController():
     def init(self, hardware, hardware_config, experiment_config):
         self._experiment_id = experiment_config['experiment_id']
         self._hardware = hardware
-        self._inc_temp_ctl = TempController(hardware.temp_sensor_inc, 
-                hardware.heater_inc, target_temp=37) # TODO: move target temp to the experiment config
-        self._inc_stirrer_ctl = StirrerController(hardware.stirrer_inc, hardware_config.incubator_stirrer_top_speed_frac, 
-                                                  self._task_queue, priority=PaceController.PRIORITY_BACT_STIRRER)
-        self._inc_od_ctl = ODController(hardware, self._inc_stirrer_ctl, experiment_config)
         
+        if 'inc_left' in experiment_config and experiment_config['inc_left'].get('use', True): 
+            self._inc_left = IncabatorController(hardware.inc_left, hardware_config.inc_left, 
+                                                 experiment_config['inc_left'], self._task_queue, priority=10) 
+        else: 
+            _logger.info('PaceController: left incubator is not used.')
+            self._inc_left = None
+
+        if 'inc_right' in experiment_config and experiment_config['inc_right'].get('use', True):
+            self._inc_right = IncabatorController(hardware.inc_right, hardware_config.inc_right, 
+                                                 experiment_config['inc_right'], self._task_queue, priority=9)
+        else:
+            _logger.info('PaceController: right incubator is not used.')
+            self._inc_right = None
+
         self._lagoon_temp_ctl = TempController(hardware.temp_sensor_lagoon,
-                hardware.heater_lagoon, target_temp=35)  # TODO: move target temp to the experiment config
+                hardware.heater_lagoon, target_temp=experiment_config['lagoon']['target_temp'])  # TODO: move target temp to the experiment config
         self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, hardware_config.lagoon_stirrer_top_speed_frac,
                                                      self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
-        self._lagoon_flow_ctl = LagoonFlowController(hardware, hardware_config, experiment_config) 
+        self._lagoon_flow_ctl = LagoonFlowController(hardware, hardware_config, experiment_config['lagoon']) 
 
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
-        self._ara_stepper_vol_per_step = hardware_config.induction_ml_per_step
+        self._ara_stepper_vol_per_step = hardware_config.induction_stepper_ml_per_step
         self._is_initialzed = True
 
         # control buttons 
@@ -189,9 +198,10 @@ class PaceController():
         assert not self._is_resetting_stepper
         assert self._is_initialzed
         self._is_running = True 
-        self._inc_temp_ctl.start(self._task_queue, priority=10)
-        self._inc_stirrer_ctl.start()
-        self._inc_od_ctl.start(self._task_queue, priority=8)
+        if self._inc_left: 
+            self._inc_left.start()
+        if self._inc_right:
+            self._inc_right.start()
         self._lagoon_temp_ctl.start(self._task_queue, priority=7)
         self._lagoon_stirrer_ctl.start()
         self._lagoon_flow_ctl.start(self._task_queue, priority=5)
@@ -247,15 +257,27 @@ class PaceController():
 
     def _stop_all_hardware(self):
           hw = self._hardware
-          hw.stirrer_inc.off()
-          hw.heater_inc.off()
+          
+          hw.inc_left.stirrer.off()
+          hw.inc_left.led.off()
+          hw.inc_left.heater.off()
+          hw.inc_left.medium_pump.off()
+          hw.inc_left.waste_pump.off()
+
+          hw.inc_right.stirrer.off()
+          hw.inc_right.led.off()
+          hw.inc_right.heater.off()
+          hw.inc_right.medium_pump.off()
+          hw.inc_right.waste_pump.off()
+
           hw.stirrer_lagoon.off()
           hw.heater_lagoon.off()
 
-          hw.pump_medium_to_incubator.off()
-          hw.pump_incubator_to_waste.off()
-          hw.pump_incubator_to_lagoon.off()
+          hw.pump_inc_left_to_lagoon.off()
+          hw.pump_inc_right_to_lagoon.off()
           hw.pump_lagoon_to_waste.off()
+          hw.stepper_arabinose_to_lagoon.off()
+
     
     def _handle_buttons(self):
         btn_left = self._btn_left.value()
@@ -263,7 +285,10 @@ class PaceController():
         if btn_left == 0 and btn_right == 0:
             _logger.info('Restarting the motors')
             # Pressing two buttons simultaneously will re-start the stirrers
-            self._inc_stirrer_ctl.__bg__restart_motor()
+            if self._inc_left:
+                self._inc_left._inc_stirrer_ctl.__bg__restart_motor()
+            if self._inc_right:
+                self._inc_right._inc_stirrer_ctl.__bg__restart_motor()
             self._lagoon_stirrer_ctl.__bg__restart_motor()
         # elif btn_left == 0:  TODO: there should be a better way to do it.
         #     self._handle_button_left()
@@ -288,19 +313,40 @@ class PaceController():
         state = {
             'experiment_id': self._experiment_id, 
             'timestamp': self._clock.time_since_epoch(),
-            'inc_od': self._inc_od_ctl.current_od(), 
-            'inc_temp': self._inc_temp_ctl.current_temp(),
-            'inc_tot_dil': self._inc_od_ctl.total_dilution(),
             'lagoon_temp': self._lagoon_temp_ctl.current_temp(),
             'lagoon_flow_rate': self._lagoon_flow_ctl.flow_rate(),
         }
+        if self._inc_left:
+            state['inc_left_temp'] = self._inc_left._inc_temp_ctl.current_temp()
+            state['inc_left_od'] = self._inc_left._inc_od_ctl.current_od()
+            state['inc_left_dilution'] = self._inc_left._inc_od_ctl.total_dilution()
+        if self._inc_right:
+            state['inc_right_temp'] = self._inc_right._inc_temp_ctl.current_temp()
+            state['inc_right_od'] = self._inc_right._inc_od_ctl.current_od()
+            state['inc_right_dilution'] = self._inc_right._inc_od_ctl.total_dilution()
         self._current_state = state
         
     
     def current_state(self):
         return self._current_state
+    
+class IncabatorController: 
 
-class ODController():
+    def __init__(self, inc, inc_cfg: IncubatorConfig, exp_config, task_queue: TaskQueue, priority, prefix=''): 
+        self._task_queue = task_queue
+        self._priority = priority
+        self._inc_temp_ctl = TempController(inc.temp_sensor, inc.heater, exp_config['target_temp'])
+        self._inc_stirrer_ctl = StirrerController(inc.stirrer, inc_cfg.stirrer_top_speed_frac, task_queue, priority=priority+0.1, prefix=prefix)
+        self._inc_od_ctl = ODController(inc, self._inc_stirrer_ctl, exp_config['target_od'], prefix=prefix)
+
+    
+    def start(self):
+        self._inc_temp_ctl.start(self._task_queue, priority=self._priority+0.2)
+        self._inc_stirrer_ctl.start() 
+        self._inc_od_ctl.start(self._task_queue, priority=self._priority+0.3)
+
+
+class ODController:
     
     OD_UPDATE_INTERVAL = s_to_ms(3)
     TIME_LED_ON = ms(100)
@@ -309,25 +355,26 @@ class ODController():
     TIME_WASTE_PUMP_ON = s_to_ms(2.2)
     NUM_OD_OUTLIERS_FOR_RESTART = 3 
 
-    def __init__(self, hardware, stirrer_ctrl, experiment_config, filter_window_size=5, filter_deviation_th=0.3):
+    def __init__(self, hardware, stirrer_ctrl, target_od, filter_window_size=5, filter_deviation_th=0.3, prefix=''):
         self._strirrer_ctrl = stirrer_ctrl
-        self._led = hardware.inc_led
-        self._od_sensor = hardware.inc_od_sensor
-        self._medium_pump = hardware.pump_medium_to_incubator
-        self._waste_pump = hardware.pump_incubator_to_waste
-        self._target_od = experiment_config['target_od']
+        self._led = hardware.led
+        self._od_sensor = hardware.od_sensor
+        self._medium_pump = hardware.medium_pump
+        self._waste_pump = hardware.waste_pump
+        self._target_od = target_od
         self._last_ods = [-1 for _ in range(filter_window_size)]
         self._filter_deviation_th = filter_deviation_th
         self._current_od = -1 
         self._measurement_counter = 0 
         self._total_dilution = 0
         self._num_od_outliers = 0
+        self._prefix = prefix
 
     def start(self, task_queue: TaskQueue, priority):
         task_queue.repeat(ODController.OD_UPDATE_INTERVAL, self.__bg__maintain_od, task_queue, priority, priority=priority)
 
     def __bg__maintain_od(self, task_queue: TaskQueue, priority):
-        _logger.debug('ODController#maintain_od')
+        _logger.debug(self._prefix+'ODController#maintain_od')
         self._led.on()
         task_queue.put(ODController.TIME_OD_DELAY, self.__bg__read_od, priority=priority)
         task_queue.put(ODController.TIME_LED_ON, self._led.off, priority=priority)
@@ -347,18 +394,18 @@ class ODController():
         if abs(od - median_od) < self._filter_deviation_th:
             self._current_od = od
         else: 
-            _logger.info(f'ODController: measured OD = {od:.2f} is an outlier, median OD = {median_od:.2f}')
+            _logger.info(f'{self._prefix}ODController: measured OD = {od:.2f} is an outlier, median OD = {median_od:.2f}')
             # potentially this is a problem with the motors and they need to be restarted 
             self._num_od_outliers += 1
             if self._num_od_outliers >= ODController.NUM_OD_OUTLIERS_FOR_RESTART:
-                _logger.info('ODController: too many outliers, restarting the motors')
+                _logger.info(self._prefix+'ODController: too many outliers, restarting the motors')
                 self._strirrer_ctrl.__bg__restart_motor()
                 self._num_od_outliers = 0
             
-        _logger.debug(f'ODController: measured OD = {od:.2f}, filtered OD = {self._current_od:.2f}')
+        _logger.debug(f'{self._prefix}ODController: measured OD = {od:.2f}, filtered OD = {self._current_od:.2f}')
         
         if self._current_od > self._target_od:
-            _logger.debug('ODController pumps on')
+            _logger.debug(self._prefix+'ODController pumps on')
             self._total_dilution += 1
             self._medium_pump.on()
             self._waste_pump.on()
@@ -394,7 +441,6 @@ class TempController:
         temp = self._temp_sensor.convert_raw(temp_raw)
         self._current_temp_raw = temp_raw
         self._current_temp = temp
-        _logger.debug('TempController: measured temp', temp)
         if temp < self._target_temp:
             self._heater.on()
         else:
@@ -414,12 +460,13 @@ class StirrerController:
     NUM_STEPS = 10
     STEP_DELAY = s_to_ms(1)
     
-    def __init__(self, stirrer, top_speed_frac, task_queue: TaskQueue, priority):
+    def __init__(self, stirrer, top_speed_frac, task_queue: TaskQueue, priority, prefix=''):
         self._stirrer = stirrer
         self._top_speed_frac = top_speed_frac
         self._task_queue = task_queue
         self._priority = priority
         self._is_starting = False
+        self._prefix = prefix
 
     def start(self):
         self._task_queue.repeat(StirrerController.STIRRER_RESTART_INTERVAL, self.__bg__restart_motor, priority=self._priority)
@@ -429,7 +476,7 @@ class StirrerController:
 
     def __bg__restart_motor(self): 
         if self._is_starting:
-            _logger.info('StirrerController: motor is already starting, dont restart')
+            _logger.info(self._prefix+'StirrerController: motor is already starting, dont restart')
             return 
         self._is_starting = True
         for speed_step in range(StirrerController.NUM_STEPS):
@@ -446,17 +493,22 @@ class StirrerController:
 
 class LagoonFlowController():
     
+    WASTE_BURST_DURATION = s_to_ms(3)
+    WASTE_BURST_INTERVAL = m_to_ms(1)
+
     def __init__(self, hardware, hardware_config: HardwareConfig, experiment_config): 
-        self._bacteria_stepper = hardware.pump_incubator_to_lagoon
+        self._inc_left_stepper = hardware.pump_inc_left_to_lagoon
+        self._inc_right_stepper = hardware.pump_inc_right_to_lagoon
         self._waste_pump = hardware.pump_lagoon_to_waste
         self._ara_stepper = hardware.stepper_arabinose_to_lagoon
-        self._flow_rate = experiment_config['lagoon_flow_rate']
-        self._lagoon_volume = experiment_config['lagoon_volume']
-        self._bact_ml_per_step = hardware_config.bact_ml_per_step
+        self._flow_rate = experiment_config['flow_rate']
+        self._lagoon_volume = experiment_config['volume']
+        self._bact_ml_per_step = hardware_config.bact_stepper_ml_per_step
+        
         if self._flow_rate > 0 and experiment_config['arabinose_target_concentration'] > 0: 
             self._ara_conc = experiment_config['arabinose_target_concentration'] / experiment_config['arabinose_stock_concentration']
             if self._ara_conc >= 0.2: 
-                raise ValueError(f'Arabinose concentration of {self._ara_conc:.2f} is too high, consider increasing stock molarity.')
+                _logger.critical(f'Arabinose concentration of {self._ara_conc:.2f} is too high, consider increasing stock molarity.')
             
             ara_flow_ml_per_hour = self._flow_rate * self._lagoon_volume * self._ara_conc
             self._ara_steps_per_sec = ara_flow_ml_per_hour / h_to_s(1)  / hardware_config.induction_stepper_ml_per_step
@@ -467,19 +519,38 @@ class LagoonFlowController():
             _logger.info('LagoonFlowController: no arabinose induction.')
         
         if self._flow_rate > 0:
+            self._bact_left_frac = experiment_config.get('inc_left_frac', 0.0)
+            self._bact_right_frac = experiment_config.get('inc_right_frac', 0.0)
+            if self._bact_left_frac + self._bact_right_frac != 1.0: 
+                _logger.critical('LagoonFlowController: bacteria fractions do not sum to 1.0')
             # convert flow rate from lv/h to steps/s
-            self._bact_steps_per_sec = self._flow_rate / h_to_s(1) / self._bact_ml_per_step
-            _logger.info(f'LagoonFlowController: bacteria flow {self._flow_rate}mL/h == {self._bact_steps_per_sec:.2f} steps/s')
+            bact_left_ml_per_hour = self._flow_rate * self._lagoon_volume * self._bact_left_frac
+            self._bact_left_steps_per_sec = bact_left_ml_per_hour / h_to_s(1) / self._bact_ml_per_step
+            _logger.info(f'LagoonFlowController: inc_left flow {bact_left_ml_per_hour}mL/h == {self._bact_left_steps_per_sec:.2f} steps/s')
+            bact_right_ml_per_hour = self._flow_rate * self._lagoon_volume * self._bact_right_frac
+            self._bact_right_steps_per_sec = bact_right_ml_per_hour / h_to_s(1) / self._bact_ml_per_step
+            _logger.info(f'LagoonFlowController: inc_right flow {bact_right_ml_per_hour}mL/h == {self._bact_right_steps_per_sec:.2f} steps/s')
         else: 
+            self._bact_left_steps_per_sec = 0
+            self._bact_right_steps_per_sec = 0
             _logger.info('LagoonFlowController: no bacteria flow.')
-        
+
        
     def start(self, task_queue, priority):
-        if self._flow_rate > 0:
-            self._bacteria_stepper.set_frequency(self._bact_steps_per_sec)
+        if self._bact_left_steps_per_sec > 0:
+            self._inc_left_stepper.set_frequency(self._bact_left_steps_per_sec)
+        if self._bact_right_steps_per_sec > 0:
+            self._inc_right_stepper.set_frequency(self._bact_right_steps_per_sec)
+        if self._flow_rate > 0: 
+             task_queue.repeat(self.WASTE_BURST_INTERVAL, 
+                          self.__bg__waste_pump, task_queue, priority, priority=priority)
         if self._ara_conc > 0: 
             self._ara_stepper.set_frequency(self._ara_steps_per_sec)
         
+    def __bg__waste_pump(self, task_queue: TaskQueue, priority): 
+        self._waste_pump.on()
+        task_queue.put(LagoonFlowController.WASTE_BURST_DURATION, self._waste_pump.off, priority=priority)
+    
     def flow_rate(self): 
         return self._flow_rate
 

@@ -25,17 +25,18 @@ def compute_stats(measurements):
     return mean, std
 
 def stop_all(): 
-    hw.inc_left_stirrer.off()
-    hw.inc_right_stirrer.off()
+    hw.inc_left.stirrer.off()
+    hw.inc_right.stirrer.off()
     hw.stirrer_lagoon.off()
     hw.pump_inc_left_to_lagoon.off()
+    hw.pump_inc_right_to_lagoon.off()
 
 
 def calibrate_inc_right_stirrer(top_speed_frac):
-    _calibrate_stirrer(top_speed_frac, hw.inc_right_stirrer)
+    _calibrate_stirrer(top_speed_frac, hw.inc_right.stirrer)
 
 def calibrate_inc_left_stirrer(top_speed_frac):
-    _calibrate_stirrer(top_speed_frac, hw.inc_left_stirrer)
+    _calibrate_stirrer(top_speed_frac, hw.inc_left.stirrer)
 
 def calibrate_lagoon_stirrer(top_speed_frac): 
     _calibrate_stirrer(top_speed_frac, hw.stirrer_lagoon)
@@ -65,8 +66,8 @@ def calibrate_temp(target_temp):
     lagoon_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
     
     print(f'Setting target temperature to {target_temp}C.')
-    inc_left_ctl = pace_controller.TempController(hw.inc_left_temp_sensor, hw.inc_left_heater, target_temp)
-    inc_right_ctl = pace_controller.TempController(hw.inc_right_temp_sensor, hw.inc_right_heater, target_temp)
+    inc_left_ctl = pace_controller.TempController(hw.inc_left.temp_sensor, hw.inc_left.heater, target_temp)
+    inc_right_ctl = pace_controller.TempController(hw.inc_right.temp_sensor, hw.inc_right.heater, target_temp)
     lagoon_ctl = pace_controller.TempController(hw.temp_sensor_lagoon, hw.heater_lagoon, target_temp)
     i = 0
     while True:
@@ -94,14 +95,14 @@ def calibrate_temp(target_temp):
 
 def calibrate_inc_left_od(num_probes=5):
     q = pace_controller.TaskQueue(clk)
-    stirrer = pace_controller.StirrerController(hw.inc_left_stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, priority=1)
-    _calibrate_od(num_probes, stirrer, hw.inc_left_led, hw.inc_left_od_sensor, q)
+    stirrer = pace_controller.StirrerController(hw.inc_left.stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, priority=1)
+    _calibrate_od(num_probes, stirrer, hw.inc_left.led, hw.inc_left.od_sensor, q)
 
 
 def calibrate_inc_right_od(num_probes=5):
     q = pace_controller.TaskQueue(clk)
-    stirrer = pace_controller.StirrerController(hw.inc_right_stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, priority=1)
-    _calibrate_od(num_probes, stirrer, hw.inc_right_led, hw.inc_right_od_sensor, q)
+    stirrer = pace_controller.StirrerController(hw.inc_right.stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, priority=1)
+    _calibrate_od(num_probes, stirrer, hw.inc_right.led, hw.inc_right.od_sensor, q)
 
 
 def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):

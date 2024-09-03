@@ -15,25 +15,25 @@ TEMP_MEASURE_DURATION_SEC = 60
 hw = Hardware(hardware_config.default_config())
 
 STIRRERS = [
-    ('Left Inc Stirrer', hw.inc_left_stirrer),
+    ('Left Inc Stirrer', hw.inc_left.stirrer),
     ('Lagoon Stirrer', hw.stirrer_lagoon),
-    ('Right Inc Stirrer', hw.inc_right_stirrer)
+    ('Right Inc Stirrer', hw.inc_right.stirrer)
 ]
 
 PUMPS = [
-    ('pump_medium_to_inc_left', hw.pump_medium_to_inc_left),
-    ('pump_inc_left_to_waste', hw.pump_inc_left_to_waste),
+    ('pump_medium_to_inc_left', hw.inc_left.medium_pump),
+    ('pump_inc_left_to_waste', hw.inc_left.waste_pump),
     ('pump_inc_left_to_lagoon', hw.pump_inc_left_to_lagoon),
     ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste),
     ('pump_inc_right_to_lagoon', hw.pump_inc_right_to_lagoon),
-    ('pump_inc_right_to_waste', hw.pump_inc_right_to_waste),
-    ('pump_medium_to_inc_right', hw.pump_medium_to_inc_right),
+    ('pump_inc_right_to_waste', hw.inc_right.medium_pump),
+    ('pump_medium_to_inc_right', hw.inc_right.waste_pump),
 ]
 
 HEATERS = [
-    ('Temp Inc Left', hw.inc_left_heater, hw.inc_left_temp_sensor),
+    ('Temp Inc Left', hw.inc_left_heater, hw.inc_left.temp_sensor),
     ('Temp Lagoon', hw.heater_lagoon, hw.temp_sensor_lagoon),
-    ('Temp Inc Right', hw.inc_right_heater, hw.inc_right_temp_sensor)
+    ('Temp Inc Right', hw.inc_right_heater, hw.inc_right.temp_sensor)
 ]
 
 def stop_all():
@@ -102,14 +102,14 @@ def measure_od_inc_left():
     ods = []
     
     for _ in range(OD_MEASURE_DURATION_SEC // OD_MEASURE_INTERVAL_SEC):
-        hw.inc_left_led.on()
+        hw.inc_left.led.on()
         time.sleep_ms(50) # todo: share the config with the controller
-        curr_raw = hw.inc_left_od_sensor.read_raw()
-        curr_od = hw.inc_left_od_sensor.read_od()
+        curr_raw = hw.inc_left.od_sensor.read_raw()
+        curr_od = hw.inc_left.od_sensor.read_od()
         print(f'RAW={curr_raw:.2f}, OD={curr_od:.2f}')
         raws.append(curr_raw)
         ods.append(curr_od)
-        hw.inc_left_led.off()
+        hw.inc_left.led.off()
         time.sleep_ms(50) # todo: share the config with the controller
         time.sleep(OD_MEASURE_INTERVAL_SEC)
     
@@ -121,14 +121,14 @@ def measure_od_inc_right():
     ods = []
     
     for _ in range(OD_MEASURE_DURATION_SEC // OD_MEASURE_INTERVAL_SEC):
-        hw.inc_right_led.on()
+        hw.inc_right.led.on()
         time.sleep_ms(50) # todo: share the config with the controller
-        curr_raw = hw.inc_right_od_sensor.read_raw()
-        curr_od = hw.inc_right_od_sensor.read_od()
+        curr_raw = hw.inc_right.od_sensor.read_raw()
+        curr_od = hw.inc_right.od_sensor.read_od()
         print(f'RAW={curr_raw:.2f}, OD={curr_od:.2f}')
         raws.append(curr_raw)
         ods.append(curr_od)
-        hw.inc_right_led.off()
+        hw.inc_right.led.off()
         time.sleep_ms(50) # todo: share the config with the controller
         time.sleep(OD_MEASURE_INTERVAL_SEC)
     
