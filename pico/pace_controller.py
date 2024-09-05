@@ -166,20 +166,20 @@ class PaceController():
         
         if 'inc_left' in experiment_config and experiment_config['inc_left'].get('use', True): 
             self._inc_left = IncabatorController(hardware.inc_left, hardware_config.inc_left, 
-                                                 experiment_config['inc_left'], self._task_queue, priority=10) 
+                                                 experiment_config['inc_left'], self._task_queue, priority=10, prefix='IncLeft') 
         else: 
             _logger.info('PaceController: left incubator is not used.')
             self._inc_left = None
 
         if 'inc_right' in experiment_config and experiment_config['inc_right'].get('use', True):
             self._inc_right = IncabatorController(hardware.inc_right, hardware_config.inc_right, 
-                                                 experiment_config['inc_right'], self._task_queue, priority=9)
+                                                 experiment_config['inc_right'], self._task_queue, priority=9, prefix='IncRight')
         else:
             _logger.info('PaceController: right incubator is not used.')
             self._inc_right = None
 
         self._lagoon_temp_ctl = TempController(hardware.temp_sensor_lagoon,
-                hardware.heater_lagoon, target_temp=experiment_config['lagoon']['target_temp'])  # TODO: move target temp to the experiment config
+                hardware.heater_lagoon, target_temp=experiment_config['lagoon']['target_temp'], prefix='Lagoon') 
         self._lagoon_stirrer_ctl = StirrerController(hardware.stirrer_lagoon, hardware_config.lagoon_stirrer_top_speed_frac,
                                                      self._task_queue, priority=PaceController.PRIORITY_LAGOON_STIRRER)
         self._lagoon_flow_ctl = LagoonFlowController(hardware, hardware_config, experiment_config['lagoon']) 
@@ -335,7 +335,7 @@ class IncabatorController:
     def __init__(self, inc, inc_cfg: IncubatorConfig, exp_config, task_queue: TaskQueue, priority, prefix=''): 
         self._task_queue = task_queue
         self._priority = priority
-        self._inc_temp_ctl = TempController(inc.temp_sensor, inc.heater, exp_config['target_temp'])
+        self._inc_temp_ctl = TempController(inc.temp_sensor, inc.heater, exp_config['target_temp'], prefix=prefix)
         self._inc_stirrer_ctl = StirrerController(inc.stirrer, inc_cfg.stirrer_top_speed_frac, task_queue, priority=priority+0.1, prefix=prefix)
         self._inc_od_ctl = ODController(inc, self._inc_stirrer_ctl, exp_config['target_od'], prefix=prefix)
 
@@ -426,24 +426,29 @@ class TempController:
 
     TEMP_UPDATE_INTERVAL = s_to_ms(1)
     
-    def __init__(self, temp_sensor, heater, target_temp):
+    def __init__(self, temp_sensor, heater, target_temp, prefix=''):
         self._temp_sensor = temp_sensor
         self._heater = heater
         self._target_temp = target_temp
         self._current_temp = -1.0
         self._current_temp_raw = -1.0 
+        self._prefix = prefix
 
     def start(self, task_queue: TaskQueue, priority):
         task_queue.repeat(TempController.TEMP_UPDATE_INTERVAL, self.__bg__maintain_temp, priority=priority)
 
     def __bg__maintain_temp(self):
-        temp_raw = self._temp_sensor.read_raw()
-        temp = self._temp_sensor.convert_raw(temp_raw)
-        self._current_temp_raw = temp_raw
-        self._current_temp = temp
-        if temp < self._target_temp:
-            self._heater.on()
-        else:
+        try: 
+            temp_raw = self._temp_sensor.read_raw()
+            temp = self._temp_sensor.convert_raw(temp_raw)
+            self._current_temp_raw = temp_raw
+            self._current_temp = temp
+            if temp < self._target_temp:
+                self._heater.on()
+            else:
+                self._heater.off()
+        except Exception as ex:
+            _logger.exception(self._prefix+'TempController: Error in maintaining temp', ex)
             self._heater.off()
 
     def current_temp(self) -> float:

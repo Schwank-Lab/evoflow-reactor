@@ -65,12 +65,14 @@ class TempSensor:
             raise ValueError(f'Multiple sensors found on the pin {pin}')
         self._sensor = self._sensor[0]
         self._f_temp_convert = f_temp_convert
+        self._driver.convert_temp() ## init the sensor
 
     def read_raw(self): 
+        # we report the stale temperature, because sensoor needs some time to read the new one.
+        t = self._driver.read_temp(self._sensor)
         self._driver.convert_temp() 
-        # Note: it's recommended for the conversion to finish before reading the temperature
-        # In our case, the first measurement might be screwed up. 
-        return self._driver.read_temp(self._sensor)
+        return t
+
     
     def convert_raw(self, raw):
         return self._f_temp_convert(raw)
@@ -256,12 +258,12 @@ class Hardware:
         # pumps 
 
         self.pump_inc_left_to_lagoon = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), 
-                                                      dir_pin=Pin(11, Pin.OUT, value=0), mode=TMC2208Stepper.MODE_PWM)
+                                                      dir_pin=Pin(11, Pin.OUT, value=0))
         self.pump_inc_right_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
         
         self.pump_lagoon_to_waste = Pump(Pin(19, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 
-        self.stepper_arabinose_to_lagoon = TMC2208Stepper(step_pin=Pin(10, Pin.OUT, value=0), dir_pin=Pin(13, Pin.OUT, value=0), mode=TMC2208Stepper.MODE_STEP)
+        self.stepper_arabinose_to_lagoon = TMC2208Stepper(step_pin=Pin(10, Pin.OUT, value=0), dir_pin=Pin(13, Pin.OUT, value=0))
         
         self.button_left = Pin(4, Pin.IN, Pin.PULL_UP) 
         self.button_right = Pin(5, Pin.IN, Pin.PULL_UP)
