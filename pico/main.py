@@ -87,10 +87,10 @@ def run():
      while True:
         wdt.feed()
         system_state = monitor.current_state()
+        system_state['reactor_state'] = 'running' if controller.is_running() else 'idle'
         console_logger.info(json.dumps(system_state))
         if network_connected: 
-            mqtt_reactor_state_recorder.record(system_state)
-            
+            mqtt_reactor_state_recorder.record(system_state)    
         if controller.is_running():
             exp_state = controller.current_state()
             file_state_recorder.record(exp_state)
