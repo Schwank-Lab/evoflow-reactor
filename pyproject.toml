@@ -20,6 +20,7 @@ jupyter = "^1.0.0"
 pyserial = "^3.5"
 pandas = "^2.2.2"
 scikit-learn = "^1.5.1"
+thonny = "^4.1.4"
 
 
 [build-system]
