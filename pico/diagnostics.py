@@ -31,9 +31,9 @@ PUMPS = [
 ]
 
 HEATERS = [
-    ('Temp Inc Left', hw.inc_left_heater, hw.inc_left.temp_sensor),
+    ('Temp Inc Left', hw.inc_left.heater, hw.inc_left.temp_sensor),
     ('Temp Lagoon', hw.heater_lagoon, hw.temp_sensor_lagoon),
-    ('Temp Inc Right', hw.inc_right_heater, hw.inc_right.temp_sensor)
+    ('Temp Inc Right', hw.inc_right.heater, hw.inc_right.temp_sensor)
 ]
 
 def stop_all():
