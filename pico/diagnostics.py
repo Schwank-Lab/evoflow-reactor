@@ -26,8 +26,8 @@ PUMPS = [
     ('pump_inc_left_to_lagoon', hw.pump_inc_left_to_lagoon),
     ('pump_lagoon_to_waste', hw.pump_lagoon_to_waste),
     ('pump_inc_right_to_lagoon', hw.pump_inc_right_to_lagoon),
-    ('pump_inc_right_to_waste', hw.inc_right.medium_pump),
-    ('pump_medium_to_inc_right', hw.inc_right.waste_pump),
+    ('pump_inc_right_to_waste',  hw.inc_right.waste_pump),
+    ('pump_medium_to_inc_right', hw.inc_right.medium_pump),
 ]
 
 HEATERS = [
