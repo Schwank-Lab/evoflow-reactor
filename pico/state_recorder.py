@@ -34,7 +34,7 @@ class FileExpStateRecorder(FileLogger):
         self._clock = clock
         self._record_every_s = record_every_s 
         self.t_last_record = clock.time_since_epoch()
-        self._record_log_message('timestamp,inc_od,inc_temp,inc_dilution,lagoon_temp,lagoon_flow_rate')
+        self._record_log_message('timestamp,inc_left_od,inc_left_temp,inc_left_dilution,inc_right_od,inc_right_temp,inc_right_dilution,lagoon_temp,lagoon_flow_rate')
 
             
     def record(self, state):
@@ -44,8 +44,9 @@ class FileExpStateRecorder(FileLogger):
             # skip recording
             return
         self.t_last_record = self._clock.time_since_epoch()
-        state_str = "{},{},{},{},{},{}\n".format(
-            state['timestamp'], state['inc_od'], state['inc_temp'], state['inc_tot_dil'], 
+        state_str = "{},{},{},{},{},{},{},{},{}\n".format(
+            state['timestamp'], state['inc_left_od'], state['inc_left_temp'], state['inc_left_dilution'], 
+            state['inc_right_od'], state['inc_right_temp'], state['inc_right_dilution'], 
             state['lagoon_temp'], state['lagoon_flow_rate'])
         self._record_log_message(state_str)
 
