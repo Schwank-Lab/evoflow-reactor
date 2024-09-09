@@ -235,8 +235,8 @@ class Hardware:
             temp_sensor=TempSensor(Pin(22, Pin.IN), config.inc_left.temp_convert),
             heater=Pin(7, Pin.OUT, value=0),
             stirrer=Stirrer(Pin(0, Pin.OUT)),
-            medium_pump=Pump(Pin(18, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac),
-            waste_pump=Pump(Pin(17, Pin.OUT, value=0), mode=Pump.MODE_PIN)
+            medium_pump=Pump(Pin(17, Pin.OUT, value=0), speed=config.pump_medium_to_incubator_speed_frac),
+            waste_pump=Pump(Pin(18, Pin.OUT, value=0), mode=Pump.MODE_PIN)
         )
 
         self.inc_right = Incubator(
