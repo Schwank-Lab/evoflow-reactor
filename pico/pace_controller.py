@@ -1,5 +1,6 @@
 from hardware_config import HardwareConfig, IncubatorConfig
 from logger import ConsoleLogger
+import time 
 
 _logger = None 
 
@@ -320,10 +321,18 @@ class PaceController():
             state['inc_left_temp'] = self._inc_left._inc_temp_ctl.current_temp()
             state['inc_left_od'] = self._inc_left._inc_od_ctl.current_od()
             state['inc_left_dilution'] = self._inc_left._inc_od_ctl.total_dilution()
+        else: 
+            state['inc_left_temp'] = -1
+            state['inc_left_od'] = -1
+            state['inc_left_dilution'] = -1
         if self._inc_right:
             state['inc_right_temp'] = self._inc_right._inc_temp_ctl.current_temp()
             state['inc_right_od'] = self._inc_right._inc_od_ctl.current_od()
             state['inc_right_dilution'] = self._inc_right._inc_od_ctl.total_dilution()
+        else:
+            state['inc_right_temp'] = -1
+            state['inc_right_od'] = -1
+            state['inc_right_dilution'] = -1
         self._current_state = state
         
     
