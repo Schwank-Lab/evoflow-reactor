@@ -123,40 +123,44 @@ except Exception as e:
     print('[MAIN] Error initializing hardware') 
     machine.reset()
 
-init_logger() # should never fail.
 
-try: 
-    init_controller()
-    main_logger.info('[MAIN] controller initialized.')
-except Exception as e:
-    main_logger.exception('[MAIN] Error initializing controller', e)
-    machine.reset()
+if hardware.button_left.value() == 0 and hardware.button_right.value() == 0:
+    print('[MAIN] Detected button press on re-boot, entering dev mode, stopping the run...')
+else:
+    init_logger() # should never fail.
 
-try:
-    network_connected = False 
-    connect_to_network()
-    network_connected = True
-    main_logger.info('[MAIN] Network connected')
-except Exception as e:
-    main_logger.exception('[MAIN] Error connecting to network', e)
+    try: 
+        init_controller()
+        main_logger.info('[MAIN] controller initialized.')
+    except Exception as e:
+        main_logger.exception('[MAIN] Error initializing controller', e)
+        machine.reset()
 
-wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT_MS)
+    try:
+        network_connected = False 
+        connect_to_network()
+        network_connected = True
+        main_logger.info('[MAIN] Network connected')
+    except Exception as e:
+        main_logger.exception('[MAIN] Error connecting to network', e)
 
-try:
-   run()
-   restart = True # run aborted, means that controller has crashed in the background.
-   main_logger.critical('[MAIN] Problem with controller detected, restarting pico W...')
-except KeyboardInterrupt:
-    print('Aborting the run...')
-    restart = False
-except Exception as e:
-    main_logger.exception('[MAIN] unhandled exception', e)
-    restart = True
-finally: 
-    controller.stop()
-    mqtt_client.disconnect() # TODO: refactor.
-    
-if restart:
-    machine.reset()
+    wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT_MS)
+
+    try:
+        run()
+        restart = True # run aborted, means that controller has crashed in the background.
+        main_logger.critical('[MAIN] Problem with controller detected, restarting pico W...')
+    except KeyboardInterrupt:
+        print('Aborting the run...')
+        restart = False
+    except Exception as e:
+        main_logger.exception('[MAIN] unhandled exception', e)
+        restart = True
+    finally: 
+        controller.stop()
+        mqtt_client.disconnect() # TODO: refactor.
+        
+    if restart:
+        machine.reset()
 
 
