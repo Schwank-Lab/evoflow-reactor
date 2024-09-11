@@ -40,6 +40,21 @@ def find_pico_port():
         if "Pico" in port.description or "Board" in port.description:
             return port.device
     return None
+
+def find_pico_mount():
+    mount_folder = Path('/Volumes')
+    hits = []
+    if not mount_folder.exists():
+        raise ValueError(f'Could not find {mount_folder}.')
+    for folder in mount_folder.iterdir():
+        if 'RPI-RP2' in folder.name:
+            hits.append(folder)
+    if len(hits) == 0:
+        raise ValueError('Could not find Pico mount.')
+    if len(hits) > 1:
+        raise ValueError('Found multiple Pico mounts: ', ' '.join(hits))
+    return hits[0]
+        
 ## Calibration commands 
 def run_inc_left_stirrer_calibration(speed_frac, port): 
     script_content = f"""from calibration import stop_all, calibrate_inc_left_stirrer
@@ -365,6 +380,13 @@ def mkdir_ampy(remote_path, port):
     if res.returncode != 0: 
         print(f'Error running command: {res.stderr}')
 
+def list_ampy(remote_path, port):
+    ampy_command = f'ampy -p {port} ls {remote_path}'
+    print(f'Running command: {ampy_command}')
+    res = subprocess.run(ampy_command, shell=True)
+    if res.returncode != 0: 
+        print(f'Error running command: {res.stderr}')
+    return res.stdout
 
 def load_evotool_config():
     CFG_EVOTOOL.touch(exist_ok=True)
@@ -458,6 +480,10 @@ if __name__ == '__main__':
 
     command_parsers.add_parser('stop', help='Stop all reactor hardware')
 
+    install_parser = command_parsers.add_parser('install', help='Install a micropython')
+    install_parser.add_argument('--micropython', '-p', type=str, default='micropython/RPI_PICO_W-20240602-v1.23.0.uf2', help='Path to the micropython file.')
+    install_parser.add_argument('--pico', '-d', type=str, default=None, help='Path to the pico device.')
+
     init_parser = command_parsers.add_parser('init', help='Initialize a new reactor')
     init_parser.add_argument('reactor_name', type=str, help='The name of the reactor to be created')
     init_parser.add_argument('--reactor_id', type=int, help='The ID of an existing reactor to use', default=None)
@@ -465,6 +491,8 @@ if __name__ == '__main__':
     deploy_parser = command_parsers.add_parser('deploy', help='Deploy reactor software')
     deploy_parser.add_argument('--dev', action='store_true', help='If specified, main.py will be stored on pico as dev_main.py, to prevent auto-run')
     deploy_parser.add_argument('scripts', type=str, nargs='+', help="Scripts to deploy, 'all' for all")
+
+    command_parsers.add_parser('ping', help='Ping the reactor')
 
     ## Commands for running diagnostics
     parser_diagnose = command_parsers.add_parser('diagnose', help='Diagnose reactor hardware', aliases=['d'])
@@ -532,6 +560,24 @@ if __name__ == '__main__':
         calibration_folder = Path(cfg['calibration_folder'])
     else:
         calibration_folder = None
+    
+    ## Handle micropython install command
+    if args.command == 'install':
+        micro_path = Path(args.micropython)
+        if not micro_path.exists():
+            print(f'Micropython file {micro_path} not found.')
+            exit(1)
+        if args.pico is None:
+            try: 
+                pico_path = find_pico_mount()
+            except ValueError as e:
+                print('Error while looking for the pico path:')
+                print(e)
+                print('You can supply path to the mounted pico via --pico flag.')
+                exit(1)
+        shutil.copy(micro_path, pico_path)
+        print('Successfully copied micropython to the pico.')
+        exit(0)
 
     ## Find pico
     port = args.port
@@ -543,6 +589,9 @@ if __name__ == '__main__':
         # TODO: try to communicate with pico.
     if args.command == 'stop': 
         run_script(DIR_DIAGNOSTICS / 'diagnostics_stop.py', port)
+    elif args.command == 'ping':
+        list_ampy('/', port)
+        print(f'Reactor responsive at port {port}')
     elif args.command == 'init':
         setup_new_reactor(args.reactor_name, args.reactor_id, port)
     elif args.command == 'deploy': 
