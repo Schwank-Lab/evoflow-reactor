@@ -71,7 +71,6 @@ def test_stepper_rotation(rotation_deg, pwm = 1000):
     num_revolutions = abs(rotation_deg) / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
     time_s = num_steps / pwm
-    report_every = 10
     print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps, {time_s:.4f}s')
     stepper.set_frequency(pwm)
     stepper.on()

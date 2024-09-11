@@ -158,19 +158,19 @@ def calibrate_pump_incubator_to_lagoon(num_steps=10000, pwm=1000):
     hw.pump_inc_left_to_lagoon.off()
 
 
-def calibrate_stepper(rotation_dir, rotation_deg=180): 
+def calibrate_stepper(rotation_dir, rotation_deg=180, pwm=1000): 
     assert rotation_deg >= 0
     stepper = hw.stepper_arabinose_to_lagoon
     stepper.set_direction(rotation_dir)
     num_revolutions = abs(rotation_deg) / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
-    report_every = 10
-    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps, direction {rotation_dir}')
-    for i in range(num_steps):
-        stepper.step()
-        if i % report_every == 0:
-            print(f'{i}/{num_steps} steps')
-    
+    num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
+    time_s = num_steps / pwm
+    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps, {time_s:.4f}s')
+    stepper.set_frequency(pwm)
+    stepper.on()
+    time.sleep(time_s)
+    stepper.off()
 
 
         
