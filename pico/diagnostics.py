@@ -63,19 +63,20 @@ def test_stepper():
         # TODO: add progress update.
         hw.stepper_arabinose_to_lagoon.step()
 
-def test_stepper_rotation(rotation_deg):
+def test_stepper_rotation(rotation_deg, pwm = 1000):
     stepper = hw.stepper_arabinose_to_lagoon
     if rotation_deg < 0: 
         stepper.set_direction(-1) 
         rotation_deg = -rotation_deg
     num_revolutions = abs(rotation_deg) / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
+    time_s = num_steps / pwm
     report_every = 10
-    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps')
-    for i in range(num_steps):
-        stepper.step()
-        if i % report_every == 0:
-            print(f'{i}/{num_steps} steps')
+    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps, {time_s:.4f}s')
+    stepper.set_frequency(pwm)
+    stepper.on()
+    time.sleep(time_s)
+    stepper.off()
     
 
 def test_stirrers():
