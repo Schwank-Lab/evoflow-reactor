@@ -143,40 +143,49 @@ class TMC2208Stepper:
 
     MODE_PWM = 0
     MODE_STEP = 1 
+    DIRECTION_FORWARD = 1
+    DIRECTION_REVERSE = -1
 
     def __init__(self, step_pin, dir_pin, forward_direction=1, mode=MODE_PWM, pwm=1000): 
         self._step_pin = step_pin 
         self._mode = mode 
         self._dir_pin = dir_pin
-        self.set_direction(forward_direction)
+        self._direction_mapping = self.calculate_direction_mapping(forward_direction)
         if mode == TMC2208Stepper.MODE_PWM: 
             self._motor = PWM(step_pin)
             self.set_frequency(pwm)
             
-    def set_direction(self, forward_direction):
-        fw_dr = 1 if forward_direction == 1 else 0
-        self._dir_pin.value(fw_dr)
+    def calculate_direction_mapping(self, forward_direction):
+        """ Set a mapping between forward direction and the value of the direction pin."""
+        assert forward_direction in [1, -1], 'Forward direction must be 1 or -1'
+        non_fowrard_direction = -forward_direction
+        return {forward_direction: 1, non_fowrard_direction: 0}
+
+    def set_direction(self, direction):
+        assert direction in self._direction_mapping.keys(), f'Invalid direction {direction}, must be in {self._direction_mapping.keys()}'
+        self._dir_pin.value(self._direction_mapping[direction])
 
     def set_frequency(self, freq):
+        assert freq > 0, 'Frequency must be positive.'
         if self._mode != TMC2208Stepper.MODE_PWM:
-            raise ValueError('Cannot set frequency unless in PWM mode.')
+            raise ValueError('Cannot set frequency in STEP mode.')
         self._motor.freq(freq)
         
     def on(self): 
         if self._mode != TMC2208Stepper.MODE_PWM:
-            raise ValueError('Cannot turn pump on unless in PWM mode.')
+            raise ValueError('Cannot turn pump in STEP mode.')
         self._motor.duty_u16(65_535 // 2)
 
     def step(self, sleep_ms=1):
         if self._mode != TMC2208Stepper.MODE_STEP:
-            raise ValueError('Cannot step pump in STEP mode.')
+            raise ValueError('Cannot step pump in PWM mode.')
         self._step_pin.on()
         time.sleep_ms(sleep_ms)
         self._step_pin.off()
 
     def off(self):
         if self._mode != TMC2208Stepper.MODE_PWM:
-            raise ValueError('Cannot turn pump off unless in PWM mode.')
+            raise ValueError('Cannot turn pump off in STEP mode.')
         self._motor.duty_u16(0)
 
 
@@ -263,7 +272,8 @@ class Hardware:
         
         self.pump_lagoon_to_waste = Pump(Pin(19, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 
-        self.stepper_arabinose_to_lagoon = TMC2208Stepper(step_pin=Pin(10, Pin.OUT, value=0), dir_pin=Pin(13, Pin.OUT, value=0))
+        self.stepper_arabinose_to_lagoon = TMC2208Stepper(step_pin=Pin(10, Pin.OUT, value=0), dir_pin=Pin(13, Pin.OUT, value=0), 
+                                                          forward_direction=config.induction_stepper_direction)
         
         self.button_left = Pin(4, Pin.IN, Pin.PULL_UP) 
         self.button_right = Pin(5, Pin.IN, Pin.PULL_UP)

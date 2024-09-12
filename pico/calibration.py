@@ -161,7 +161,7 @@ def calibrate_pump_incubator_to_lagoon(num_steps=10000, pwm=1000):
 def calibrate_stepper(rotation_dir, rotation_deg=180, pwm=1000): 
     assert rotation_deg >= 0
     stepper = hw.stepper_arabinose_to_lagoon
-    stepper.set_direction(rotation_dir)
+    stepper._direction_mapping = stepper.calculate_direction_mapping(rotation_dir)
     num_revolutions = abs(rotation_deg) / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)

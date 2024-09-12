@@ -1,6 +1,7 @@
 from hardware_config import HardwareConfig, IncubatorConfig
 from logger import ConsoleLogger
 import time 
+import json
 
 _logger = None 
 
@@ -198,7 +199,6 @@ class PaceController():
         assert not self._is_running
         assert not self._is_resetting_stepper
         assert self._is_initialzed
-        self._is_running = True 
         if self._inc_left: 
             self._inc_left.start()
         if self._inc_right:
@@ -209,31 +209,41 @@ class PaceController():
         self._task_queue.repeat(PaceController.RECORD_STATE_EVERY, self._record_state, priority=1)
         self._task_queue.repeat(PaceController.CHECK_STEPPER_BUTTONS_INTERVAL, 
                           self._handle_buttons, priority=3)
-        
-        self._thread(self._run)
+        self._is_running = True 
+        self._write_current_status('running')
+        self._thread(self.__bg__run)
 
-    def reset_stepper_forward(self, vol_ml): 
-        assert not self._is_running
-        n_repeats = int(vol_ml / self._ara_stepper_vol_per_step)
-        _logger.info(f'PaceController: resetting arabinose syringe forward {vol_ml}mL, {n_repeats} steps.')
-        self._task_queue.repeat_n(0, n_repeats, self._ara_stepper.step_forward, priority=0)
-        self._is_resetting_stepper = True
-        self._thread(self._run)
+    def reset_stepper_forward(self, vol_ml, pwm=1000): 
+        self._reset_stepper(vol_ml, pwm, direction=1)
 
-    def reset_stepper_reverse(self, vol_ml): 
+    def reset_stepper_reverse(self, vol_ml, pwm=1000): 
+        self._reset_stepper(vol_ml, pwm, direction=-1)
+
+    def _reset_stepper(self, vol_ml, pwm, direction):
         assert not self._is_running
-        n_repeats = int(vol_ml / self._ara_stepper_vol_per_step)
-        _logger.info(f'PaceController: resetting arabinose syringe backward {vol_ml}mL, {n_repeats} steps.')
-        self._task_queue.repeat_n(0, n_repeats, self._ara_stepper.step_reverse, priority=0)
         self._is_resetting_stepper = True
-        self._thread(self._run)
+        self._write_current_status('resetting_stepper')
+        n_steps = int(vol_ml / self._ara_stepper_vol_per_step)
+        time_s = n_steps / pwm
+        _logger.info(f'PaceController: resetting induction syringe {vol_ml}mL, {n_steps} steps, {time_s:.4f}s')
+        self._ara_stepper.set_frequency(pwm)
+        self._ara_stepper.set_direction(direction)
+        self._ara_stepper.on()
+        self._task_queue.put(s_to_ms(time_s), self._ara_stepper.off, priority=0)
+        self._thread(self.__bg__run)
+        # No need to explicitly stop the controller, it will stop automatically one the stepper is done 
+        # and there're no more events in the task queue.
 
     def stop(self):
+        if not self._is_running and not self._is_resetting_stepper:
+            print('PaceController#stop: already stopped, nothing to do')
+            return 
         self._is_running = False
         self._is_resetting_stepper = False
         while self._background_thread_running:
             pass
-        print('PaceController: stopped')
+        print('PaceController#stop: stopped') # Don't write to the _logger, it's used for background threads.
+        self._write_current_status('idle')
     
     def is_running(self): 
         return self._is_running
@@ -241,9 +251,15 @@ class PaceController():
     def is_resetting_stepper(self): 
         return self._is_resetting_stepper
     
-    def _run(self):
+    def __bg__run(self):
         self._background_thread_running = True
-        while not self._task_queue.empty() and (self ._is_running or self._is_resetting_stepper):
+        while True:
+            if self._task_queue.empty():
+                _logger.info('PaceController: task queue is empty, stopping the controller')
+                break
+            if not self ._is_running and not self._is_resetting_stepper:
+                _logger.info('PaceController: flags reset, stopping controller.')
+                break
             try: 
                 self._task_queue.cycle()
                 self.is_alive = True
@@ -251,7 +267,6 @@ class PaceController():
                 _logger.exception('PaceController: Error in task queue cycle', ex)
                 self.run_error = True
 
-        _logger.info('PaceController: stopping the controller')
         self._task_queue.clear()
         self._stop_all_hardware()
         self._background_thread_running = False
@@ -291,23 +306,6 @@ class PaceController():
             if self._inc_right:
                 self._inc_right._inc_stirrer_ctl.__bg__restart_motor()
             self._lagoon_stirrer_ctl.__bg__restart_motor()
-        # elif btn_left == 0:  TODO: there should be a better way to do it.
-        #     self._handle_button_left()
-        # elif btn_right == 0:
-        #     self._handle_button_right()
-            
-            
-    def _handle_button_left(self):
-        """ Pressing left button will drain ara from the syringe. """
-        _logger.info('PaceController: resetting arabinose syringe forward.')
-        while self._btn_left.value() == 0:
-            self._ara_stepper.step_forward()
-        
-    def _handle_button_right(self): 
-        """ Pressing right button will re-fill the syringe. """
-        _logger.info('PaceController: resetting arabinose syringe backward.')
-        while self._btn_right.value() == 0: 
-            self._ara_stepper.step_reverse()
 
     def _record_state(self):
         _logger.debug('PaceController#record_state')
@@ -335,8 +333,12 @@ class PaceController():
             state['inc_right_dilution'] = -1
         self._current_state = state
         
-    
+    def _write_current_status(self, status):
+        with open('state/reactor_state.json', 'w') as f:
+                json.dump({'status': status}, f)
+
     def current_state(self):
+        """ Current state of the reactor sensors. """
         return self._current_state
     
 class IncabatorController: 

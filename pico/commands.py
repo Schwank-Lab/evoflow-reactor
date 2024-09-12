@@ -18,18 +18,8 @@ class CommandsDispatcher:
         reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
         hardware = Hardware(reactor_config) 
         self._pace_controller.stop()
+        time.sleep(2) # give thread some time to finish.
         self._pace_controller.init(hardware, reactor_config, experiment_config)
-        
-
-    def _stop_controller(self): 
-        with open('state/reactor_state.json', 'w') as f:
-                json.dump({'status': 'idle'}, f)
-        self._pace_controller.stop()
-
-    def _start_controller(self): 
-        with open('state/reactor_state.json', 'w') as f:
-                json.dump({'status': 'running'}, f)
-        self._pace_controller.start()
         
     def _process_commands(self, msg):
         self._logger.info('CommandDispatcher: received message', msg)
@@ -40,22 +30,23 @@ class CommandsDispatcher:
         cmd = msg['command']
         self._logger.info('CommandDispatcher: received command: ', cmd)
         if cmd == 'start':
-            self._stop_controller()
-            self._start_controller()
+            self._pace_controller.stop()
+            time.sleep(2) # give thread some time to finish.
+            self._pace_controller.start()
         elif cmd == 'stop' or cmd == 'pause':
-            self._stop_controller()
+            self._pace_controller.stop()
         elif cmd == 'stepper_forward':
-            vol_ml = msg['stepper_vol'] 
-            self._stop_controller()
+            vol_ml = msg['stepper_volume'] 
+            self._pace_controller.stop()
             time.sleep(2) # give thread some time to finish.
             self._pace_controller.reset_stepper_forward(vol_ml)
         elif cmd == 'stepper_reverse': 
-            vol_ml = msg['stepper_vol']
-            self._stop_controller()
+            vol_ml = msg['stepper_volume']
+            self._pace_controller.stop()
             time.sleep(2)
             self._pace_controller.reset_stepper_reverse(vol_ml)
         elif cmd == 'stepper_stop':
-            self._stop_controller()
+            self._pace_controller.stop()
             # controller has to be restarted manually.
         elif cmd == 'new_experiment' or cmd == 'update_experiment':
             self._logger.info('Command Dispatcher: udpating experiment config')
@@ -65,12 +56,12 @@ class CommandsDispatcher:
                  json.dump(msg['experiment_config'], f)
             self._recreate_pace_controller()
             time.sleep(2) # give thread some time to finish.
-            self._start_controller()
+            self._pace_controller.start()
         elif cmd == 'update_reactor_config': 
             with open('configs/reactor_config.json', 'w') as f:
                  json.dump(msg['reactor_config'], f)
             self._recreate_pace_controller()
             time.sleep(2)
-            self._start_controller() 
+            self._pace_controller.start()
         else:
             self._logger.critical('CommandDispatcher: unknown command', cmd)

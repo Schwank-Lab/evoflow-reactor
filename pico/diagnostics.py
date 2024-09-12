@@ -66,7 +66,7 @@ def test_stepper():
 def test_stepper_rotation(rotation_deg, pwm = 1000):
     stepper = hw.stepper_arabinose_to_lagoon
     if rotation_deg < 0: 
-        stepper.set_direction(-1) 
+        stepper.calculate_direction_mapping(-1) 
         rotation_deg = -rotation_deg
     num_revolutions = abs(rotation_deg) / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)

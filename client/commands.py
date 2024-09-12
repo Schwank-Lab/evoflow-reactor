@@ -26,7 +26,7 @@ def create_payload(args):
     if args.config and args.command == 'update_reactor_config':
         payload['reactor_config'] = load_config(args.config)
     if args.stepper_vol:
-        payload["stepper_vol"] = args.stepper_vol
+        payload["stepper_volume"] = args.stepper_vol
     return payload
 
 # Set up argument parser

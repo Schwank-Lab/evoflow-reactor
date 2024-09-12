@@ -73,7 +73,7 @@ Note: you can specify custom PWM value by using `--pwm <value>` flag, e.g. `pyth
 We need to calibrate the direction of the induction stepper motor. 
 
 1. Run `python evotool.py calibrate induction_stepper 1`
-2. Observe the rotation of the stepper shaft, it should be turning counter-clockwise, when looked from the direction of the motor.
+2. Observe the rotation of the stepper shaft, it should be turning **clockwise**, when looked from the direction of the motor.
  
 If that's not the case, execute two more commands: 
 3. Run `python evotool.py calibrate induction_stepper -1`
