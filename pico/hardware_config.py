@@ -2,7 +2,7 @@ import json
 
 SYRINGE_ML_PER_MM = 30/78
 SYRINGE_LARGE_ML_PER_MM = 50 / 98
-SHAFT_LEAD_MM = 0.5 # x-displacement of the stepper shaft per rotation.
+SHAFT_LEAD_MM = 2 # x-displacement of the stepper shaft per rotation.
 STEPS_PER_REVOLUTION = 2038 // 4
 STEPS_PER_REVOLUTION_BULLDOG = 1600
 HAHRDWARE_CONFIG_FILE = 'configs/hardware_config.json'

@@ -16,7 +16,7 @@ from sqlalchemy import select, func
 
 
 
-from diagnostics import diagnostics_stepper, diagnostics_od
+from diagnostics import diagnostics_od
 
 DIR_DIAGNOSTICS = Path('diagnostics')
 DIR_TMP = Path('tmp')
@@ -324,9 +324,21 @@ def run_inc_right_od_diagnostic(port):
     diagnostics_od.generate_script('inc_right', temp_dir=DIR_TMP, script_name='diagnostics_right_od.py')
     run_script(DIR_TMP / 'diagnostics_right_od.py', port)
 
-def run_stepper_diagnostic(rotation_deg, port): 
-    diagnostics_stepper.generate_script(rotation_deg, temp_dir=DIR_TMP, script_name='diagnostics_stepper.py')
-    run_script(DIR_TMP / 'diagnostics_stepper.py', port)
+def run_stepper_diagnostic(movement_type, movement_amount, port): 
+    stepper_fucntion_map = {
+        'angle': 'test_stepper_rotation',
+        'displacement': 'test_stepper_displacement',
+        'volume': 'test_stepper_vol'
+    }
+    script_content = f"""from diagnostics import stop_all, test_stepper_rotation, test_stepper_displacement, test_stepper_vol
+
+stop_all() 
+{stepper_fucntion_map[movement_type]}({movement_amount})
+"""
+    script = DIR_TMP / 'diagnostics_stepper.py'
+    with open(script,  'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
 
 
 ## Helper functions
@@ -499,7 +511,8 @@ if __name__ == '__main__':
     diagnose_hardware_parsers = parser_diagnose.add_subparsers(dest='part')
     diagnose_hardware_parsers.add_parser('pumps', help='Diagnose pumps')
     parser_stepper = diagnose_hardware_parsers.add_parser('stepper', help='Diagnose stepper motor')
-    parser_stepper.add_argument('rotation_deg', type=int, help='Rotation degrees')
+    parser_stepper.add_argument('type', choices=['angle', 'displacement', 'vol'], help='Specify the type of movement: angle, displacement, or volume')
+    parser_stepper.add_argument('amount', type=int, help='Specify the amount: degrees, mm, or mL, depending on the type')
     diagnose_hardware_parsers.add_parser('stirrers', help='Diagnose stirrers')
     diagnose_hardware_parsers.add_parser('temp', help='Diagnose temperature sensors')
     diagnose_hardware_parsers.add_parser('od_left', help='Diagnose optical density sensors on the left turbidostat')
@@ -600,7 +613,7 @@ if __name__ == '__main__':
         if args.part == 'pumps':
             run_script(DIR_DIAGNOSTICS / 'diagnostics_pumps.py', port)
         elif args.part == 'stepper':
-            run_stepper_diagnostic(args.rotation_deg, port)
+            run_stepper_diagnostic(args.type, args.amount, port)
         elif args.part == 'stirrers':
             run_script(DIR_DIAGNOSTICS / 'diagnostics_stirrers.py', port)
         elif args.part == 'temp':

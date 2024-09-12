@@ -12,7 +12,9 @@ OD_MEASURE_INTERVAL_SEC = 1
 TEMP_MEASURE_INTERVAL_SEC = 10
 TEMP_MEASURE_DURATION_SEC = 60
 
-hw = Hardware(hardware_config.default_config())
+# TODO: do I really want to use the calibrate config here? 
+hw_config = hardware_config.load_hardware_config('configs/reactor_config.json')
+hw = Hardware(hw_config)
 
 STIRRERS = [
     ('Left Inc Stirrer', hw.inc_left.stirrer),
@@ -45,6 +47,8 @@ def stop_all():
         
     for _, stirrer in STIRRERS:
         stirrer.off()
+
+    hw.stepper_arabinose_to_lagoon.off()
         
         
 def test_pumps():
@@ -63,20 +67,46 @@ def test_stepper():
         # TODO: add progress update.
         hw.stepper_arabinose_to_lagoon.step()
 
+    
+    
+def test_stepper_vol(vol_ml, pwm = 1000):
+    displacement_mm = vol_ml / hardware_config.SYRINGE_LARGE_ML_PER_MM
+    print(f'Making a {vol_ml}ml displacement on the stepper motor')
+    test_stepper_displacement(displacement_mm, pwm) 
+
+
+def test_stepper_displacement(displacement_mm, pwm = 1000):
+    num_revolutions = displacement_mm / hardware_config.SHAFT_LEAD_MM # TODO: can I avoid this hardcoding?
+    print(f'Making a {displacement_mm}mm displacement on the stepper motor')
+    test_stepper_rotation(num_revolutions * 360, pwm)
+
+
 def test_stepper_rotation(rotation_deg, pwm = 1000):
-    stepper = hw.stepper_arabinose_to_lagoon
-    if rotation_deg < 0: 
-        stepper.calculate_direction_mapping(-1) 
-        rotation_deg = -rotation_deg
-    num_revolutions = abs(rotation_deg) / 360 
+    num_revolutions = rotation_deg / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
+    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_revolutions} revolutions.')
+    test_stepper_steps(num_steps, pwm)
+
+
+def test_stepper_steps(num_steps, pwm = 1000): 
+    """ make the specified number of steps at specified PWM. 
+    
+    Args:
+        num_steps: int, number of steps to make. If positive, rotation in positive direction, if negative, rotation in negative direction.
+    """
+    stepper = hw.stepper_arabinose_to_lagoon
+    if num_steps < 0: 
+        stepper.set_direction(-1) 
+        num_steps = -num_steps
+    else: 
+        stepper.set_direction(1)
     time_s = num_steps / pwm
-    print(f'Making a {rotation_deg} rotation on the stepper motor, {num_steps} steps, {time_s:.4f}s')
+    print(f'Making {num_steps} steps, {time_s:.4f}s')
     stepper.set_frequency(pwm)
     stepper.on()
+    # TODO: periodically write the progress, otherwise ampy will detach.
     time.sleep(time_s)
     stepper.off()
-    
 
 def test_stirrers():
     print('Testing Stirrers')
