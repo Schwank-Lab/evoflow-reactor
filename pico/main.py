@@ -19,6 +19,7 @@ import gc
 WATCHDOG_TIMEOUT_MS = 8 * 1000
 RUN_CYCLE_SLEEP_MS = 3
 LOG_CLEANUP_EVERY_MS = 5 * 60 * 1000
+NETWORK_RECONNECT_EVERY_MS = 5 * 60 * 1000
 
 
 def init_hardware():
@@ -92,18 +93,23 @@ def get_controller_state():
 
 def run():
      last_log_cleanup = clock.ticks_ms()
+     last_network_connected = clock.ticks_ms()
      while True:
         system_state = monitor.current_state()
         system_state['reactor_state'] = get_controller_state()
         console_logger.info(json.dumps(system_state))
         if network_connected: 
             mqtt_reactor_state_recorder.record(system_state)    
+            last_network_connected = clock.ticks_ms()
+        elif clock.ticks_ms() - last_network_connected > NETWORK_RECONNECT_EVERY_MS:
+            main_logger.critical('[MAIN] Network disconnected for too long, re-starting pico.')
+            return
         if controller.is_running():
             exp_state = controller.current_state()
             file_state_recorder.record(exp_state)
             console_logger.info(json.dumps(exp_state))
             if network_connected: 
-                mqtt_exp_state_recorder.record(exp_state)
+                mqtt_exp_state_recorder.record(exp_state)    
             if not controller.is_alive:
                 main_logger.critical('[MAIN] Controller thread has died, aborting the run')
                 return
