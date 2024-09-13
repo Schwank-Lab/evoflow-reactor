@@ -43,7 +43,7 @@ def init_logger():
 def init_controller():
     global controller, file_state_recorder
     thread = lambda fn, *args: _thread.start_new_thread(fn, args)
-    controller = PaceController(clock, thread, logger=pace_logger)
+    controller = PaceController(clock, thread, bg_logger=pace_logger, main_logger=main_logger)
 
     experiment_config = utils.load_json('configs/experiment_config.json')
     controller.init(hardware, reactor_config, experiment_config)

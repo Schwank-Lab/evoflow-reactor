@@ -10,9 +10,12 @@ EXPERIMENT_CONFIG_FILE = 'configs/experiment_config.json'
 
 
 def calculate_vol_per_step(steps_per_revolution, shaft_lead_mm, syringe_ml_per_mm):
-    """ Calculate the volume of liquid dispenced per *full rotation* of the stepper rotor."""
-    angle_per_step = 1 / steps_per_revolution # fraction of the full rotation per step 
-    return angle_per_step * shaft_lead_mm * syringe_ml_per_mm 
+    """ Calculate the volume of liquid dispenced per step of the stepper rotor."""
+    angle_per_step = 1 / steps_per_revolution # angle in fraction of a full revolution.
+    displacement_per_step = angle_per_step * shaft_lead_mm
+    volume_per_step = displacement_per_step * syringe_ml_per_mm
+    return volume_per_step
+    
  
 class IncubatorConfig:
     def __init__(self, config):

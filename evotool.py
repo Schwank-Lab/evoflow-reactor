@@ -35,6 +35,7 @@ CALIBRATION_INC_RIGHT_STIRRER_SPEED = 'inc_right_stirrer_speed_frac.txt'
 CALIBRATION_LAGOON_STIRRER_SPEED = 'lagoon_stirrer_speed_frac.txt'
 
 def find_pico_port():
+    """ Automatically detects usb port to which pico is attached."""
     ports = serial.tools.list_ports.comports()
     for port in ports:
         if "Pico" in port.description or "Board" in port.description:
@@ -42,6 +43,13 @@ def find_pico_port():
     return None
 
 def find_pico_mount():
+    """ Automatically finds location in the file system where pico is mounted. 
+    
+    Returns:  
+        String path to the mounted folder. 
+    Throws: 
+        ValueError: If pico is not found.
+    """
     mount_folder = Path('/Volumes')
     hits = []
     if not mount_folder.exists():
@@ -55,7 +63,13 @@ def find_pico_mount():
         raise ValueError('Found multiple Pico mounts: ', ' '.join(hits))
     return hits[0]
         
-## Calibration commands 
+
+##############################
+#  Calibration commands
+##############################
+
+
+
 def run_inc_left_stirrer_calibration(speed_frac, port): 
     script_content = f"""from calibration import stop_all, calibrate_inc_left_stirrer
 
@@ -315,7 +329,12 @@ def compute_new_config(calibration_folder, args, port):
     put_ampy(calibration_folder / 'new_reactor_config.json', 'configs/reactor_config.json', port)
 
 
-## Diagnostics commands
+
+##############################
+# Diagnostics commands
+##############################
+
+
 def run_inc_left_od_diagnostic(port): 
     diagnostics_od.generate_script('inc_left', temp_dir=DIR_TMP, script_name='diagnostics_left_od.py')
     run_script(DIR_TMP / 'diagnostics_left_od.py', port)
@@ -328,7 +347,7 @@ def run_stepper_diagnostic(movement_type, movement_amount, port):
     stepper_fucntion_map = {
         'angle': 'test_stepper_rotation',
         'displacement': 'test_stepper_displacement',
-        'volume': 'test_stepper_vol'
+        'vol': 'test_stepper_vol'
     }
     script_content = f"""from diagnostics import stop_all, test_stepper_rotation, test_stepper_displacement, test_stepper_vol
 

@@ -281,8 +281,6 @@ class PaceController():
         if not self._is_running and not self._is_resetting_stepper:
             print('PaceController#stop: already stopped, nothing to do')
             return
-        self._is_running = False
-        self._is_resetting_stepper = False
         while self._background_thread_running:
             pass
         print('PaceController#stop: stopped')  # Don't write to the _logger, it's used for background threads.
@@ -311,7 +309,9 @@ class PaceController():
             except Exception as ex:
                 _bg_logger.exception('PaceController: Error in task queue cycle', ex)
                 self.run_error = True
-
+        
+        self._is_running = False
+        self._is_resetting_stepper = False
         self._task_queue.clear()
         self._stop_all_hardware()
         self._background_thread_running = False
