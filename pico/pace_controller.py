@@ -638,14 +638,17 @@ class LagoonFlowController():
 
     def start(self, task_queue, priority):
         if self._bact_left_steps_per_sec > 0:
-            self._inc_left_stepper.set_frequency(self._bact_left_steps_per_sec)
+            self._inc_left_stepper.set_frequency(int(self._bact_left_steps_per_sec))
+            self._inc_left_stepper.on()
         if self._bact_right_steps_per_sec > 0:
-            self._inc_right_stepper.set_frequency(self._bact_right_steps_per_sec)
+            self._inc_right_stepper.set_frequency(int(self._bact_right_steps_per_sec))
+            self._inc_right_stepper.on()
         if self._flow_rate > 0:
             task_queue.repeat(self.WASTE_BURST_INTERVAL,
                               self.__bg__waste_pump, task_queue, priority, priority=priority)
         if self._ara_conc > 0:
-            self._ara_stepper.set_frequency(self._ara_steps_per_sec)
+            self._ara_stepper.set_frequency(int(self._ara_steps_per_sec))
+            self._ara_stepper.on()
 
     def __bg__waste_pump(self, task_queue: TaskQueue, priority):
         self._waste_pump.on()
