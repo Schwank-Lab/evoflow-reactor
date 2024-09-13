@@ -20,6 +20,7 @@ WATCHDOG_TIMEOUT_MS = 8 * 1000
 RUN_CYCLE_SLEEP_MS = 3
 LOG_CLEANUP_EVERY_MS = 5 * 60 * 1000
 
+
 def init_hardware():
     global hardware, reactor_config
     reactor_config = hardware_config.load_hardware_config('configs/reactor_config.json')
@@ -81,13 +82,19 @@ def receive_mqtt_commands():
         main_logger.exception('Mqtt Client: Error receiving message', ex)
         mqtt_client.restore_connection()
 
+def get_controller_state(): 
+    if controller.is_running():
+        return 'running'
+    elif controller.is_resetting_stepper():
+        return 'resetting_stepper'
+    else:
+        return 'idle'
 
 def run():
      last_log_cleanup = clock.ticks_ms()
      while True:
-        wdt.feed()
         system_state = monitor.current_state()
-        system_state['reactor_state'] = 'running' if controller.is_running() else 'idle'
+        system_state['reactor_state'] = get_controller_state()
         console_logger.info(json.dumps(system_state))
         if network_connected: 
             mqtt_reactor_state_recorder.record(system_state)    
@@ -144,8 +151,6 @@ else:
     except Exception as e:
         main_logger.exception('[MAIN] Error connecting to network', e)
 
-    wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT_MS)
-
     try:
         run()
         restart = True # run aborted, means that controller has crashed in the background.
@@ -157,8 +162,9 @@ else:
         main_logger.exception('[MAIN] unhandled exception', e)
         restart = True
     finally: 
-        controller.stop()
-        mqtt_client.disconnect() # TODO: refactor.
+        controller.stop(save_status=not restart) 
+        if network_connected:
+            mqtt_client.disconnect() # TODO: refactor.
         
     if restart:
         machine.reset()

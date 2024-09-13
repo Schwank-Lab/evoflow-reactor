@@ -219,22 +219,26 @@ class PaceController():
     def reset_stepper_reverse(self, vol_ml, pwm=1000): 
         self._reset_stepper(vol_ml, pwm, direction=-1)
 
-    def _reset_stepper(self, vol_ml, pwm, direction):
+    def _reset_stepper(self, vol_ml, pwm, direction, report_progress_every_s=1):
         assert not self._is_running
         self._is_resetting_stepper = True
-        self._write_current_status('resetting_stepper')
         n_steps = int(vol_ml / self._ara_stepper_vol_per_step)
         time_s = n_steps / pwm
         _logger.info(f'PaceController: resetting induction syringe {vol_ml}mL, {n_steps} steps, {time_s:.4f}s')
         self._ara_stepper.set_frequency(pwm)
         self._ara_stepper.set_direction(direction)
         self._ara_stepper.on()
-        self._task_queue.put(s_to_ms(time_s), self._ara_stepper.off, priority=0)
+        for i in range(1, time_s // report_progress_every_s): 
+            self._task_queue.put(s_to_ms(report_progress_every_s*i), self._reset_stepper_report_progress, 
+                                 i*report_progress_every_s, time_s, priority=0)
         self._thread(self.__bg__run)
         # No need to explicitly stop the controller, it will stop automatically one the stepper is done 
         # and there're no more events in the task queue.
+    
+    def _reset_stepper_report_progress(self, time_spent, time_total):
+        _logger.info(f'PaceController: reset induction syringe progress: {time_spent:.2f}s / {time_total:.2f}s')
 
-    def stop(self):
+    def stop(self, save_status=True):
         if not self._is_running and not self._is_resetting_stepper:
             print('PaceController#stop: already stopped, nothing to do')
             return 
@@ -243,7 +247,8 @@ class PaceController():
         while self._background_thread_running:
             pass
         print('PaceController#stop: stopped') # Don't write to the _logger, it's used for background threads.
-        self._write_current_status('idle')
+        if save_status: 
+            self._write_current_status('idle')
     
     def is_running(self): 
         return self._is_running
