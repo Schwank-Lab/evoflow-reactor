@@ -388,7 +388,12 @@ def put_ampy(local_path, pico_path, port):
         print(f'Error running command: {res.stderr}')
 
 
-def rm_ampy(remote_path, port): 
+def rm_ampy(remote_path, port, check_exists=True): 
+    if check_exists:
+        parent_folder  = Path(remote_path).parent
+        if not remote_path in list_ampy(parent_folder, port):
+            print(f'Path {remote_path} does not exist, return.')
+            return
     ampy_command = f'ampy -p {port} rm {remote_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
@@ -411,13 +416,16 @@ def mkdir_ampy(remote_path, port):
     if res.returncode != 0: 
         print(f'Error running command: {res.stderr}')
 
-def list_ampy(remote_path, port):
+def list_ampy(remote_path, port, print_results=False):
     ampy_command = f'ampy -p {port} ls {remote_path}'
     print(f'Running command: {ampy_command}')
-    res = subprocess.run(ampy_command, shell=True)
+    res = subprocess.run(ampy_command, shell=True, capture_output=True, text=True)
     if res.returncode != 0: 
         print(f'Error running command: {res.stderr}')
-    return res.stdout
+    list_res = res.stdout.split('\n')
+    if print_results:
+        print('\n'.join(list_res))
+    return list_res
 
 def load_evotool_config():
     CFG_EVOTOOL.touch(exist_ok=True)
@@ -493,13 +501,13 @@ def deploy(scripts: list[str], port: str, dev_mode: bool):
                 exit(1)
     has_main = any('main.py' in script for script in scripts)
     if has_main:
-        rm_ampy('main.py', port)
-        pico_main = 'dev_main.py' if dev_mode else 'main.py'
+        rm_ampy('/main.py', port)
+        pico_main = '/dev_main.py' if dev_mode else '/main.py'
         put_ampy('pico/main.py', pico_main, port)
     
     non_main = [script for script in scripts if 'main.py' not in script]
     for script in non_main: 
-        put_ampy(script, Path(script).name, port)
+        put_ampy(script, Path('/') / Path(script).name, port)
     
         
 
