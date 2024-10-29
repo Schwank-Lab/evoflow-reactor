@@ -42,6 +42,7 @@ class Logger:
             return "UNKNOWN"
         
     def log(self, level, *args):
+        #TODO: catch exceptions.
         if level >= self.level:
             level_name = self._get_level_name(level)
             timestamp = self.clock.localtime()
@@ -61,11 +62,6 @@ class FileLogger(Logger):
         self._create_log_file()
 
     def _create_log_file(self):
-        try:
-            os.mkdir(FileLogger.log_dir)
-        except OSError:
-            # Assume the directory exists
-            pass
         # Simplified timestamp using epoch seconds
         timestamp = self.clock.time_since_epoch()
         self._log_file_date = utils.timestamp_to_date(timestamp)
