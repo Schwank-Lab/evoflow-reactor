@@ -1,0 +1,23 @@
+{
+    "inc_left": {
+        "use": true,
+        "target_od": 0.7,
+        "target_temp": 37
+
+    },
+    "inc_right": {
+        "use": false,
+        "target_od": 0.7,
+        "target_temp": 37
+    },
+    "lagoon": {
+        "target_temp": 37,
+        "volume": 7,
+        "flow_rate": 0, 
+        "inc_left_frac": 1, 
+        "inc_right_frac": 0,
+        "arabinose_stock_concentration": 2000,
+        "arabinose_target_concentration": 0
+    },
+    "experiment_id": 7
+}

@@ -1,0 +1,8 @@
+{
+    "target_od": 0.7,
+    "lagoon_flow_rate": 1.0,
+    "lagoon_volume": 7,
+    "arabinose_stock_concentration": 2000,
+    "arabinose_target_concentration": 40,
+    "experiment_id": 33
+}

@@ -506,7 +506,7 @@ def setup_new_reactor(reactor_name, reactor_id, port):
     put_ampy('pico/configs/default-reactor_config.json', '/configs/reactor_config.json', port)
     put_ampy('pico/configs/default-experiment_config.json', '/configs/experiment_config.json', port)
     put_ampy('pico/configs/default-reactor_state.json', '/state/reactor_state.json', port)
-    put_ampy('libs', '/libs', port)
+    put_ampy('pico-libs', '/libs', port)
 
     
 

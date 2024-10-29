@@ -1,0 +1,35 @@
+{
+    "inc_left": {
+      "od": {
+        "intercept": -0.2614537462485157,
+        "slope": 2.3728471210637604e-05
+      },
+      "temp": {
+        "intercept": -7.604319357579641,
+        "slope": 1.1402647014959075
+      },
+      "stirrer_top_speed_frac": 0.1
+    },
+    "inc_right": {
+      "od": {
+        "intercept": -0.2976584910896709,
+        "slope": 2.434911701794899e-05
+      },
+      "temp": {
+        "intercept": -8.515469760755707,
+        "slope": 1.1891364616490394
+      },
+      "stirrer_top_speed_frac": 0.1
+    },
+    "lagoon_temp": {
+      "intercept": -8.462558845776101,
+      "slope": 1.2260242269612442
+    },
+    "lagoon_stirrer_top_speed_frac": 0.1,
+    "pumps_speed_frac": 0.4,
+    "pump_lagoon_to_waste_burst_duration_s": 0.6,
+    "bact_stepper_ml_per_step": 0.0001,
+    "induction_stepper_direction": 1,
+    "induction_stepper_ml_per_step": 0.0001594387755102041
+  }
+  
