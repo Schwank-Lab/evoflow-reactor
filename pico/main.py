@@ -17,7 +17,7 @@ import machine
 import gc 
 
 WATCHDOG_TIMEOUT_MS = 8 * 1000
-RUN_CYCLE_SLEEP_MS = 3
+RUN_CYCLE_SLEEP_S = 3
 LOG_CLEANUP_EVERY_MS = 5 * 60 * 1000
 NETWORK_RECONNECT_EVERY_MS = 5 * 60 * 1000
 
@@ -122,11 +122,13 @@ def run():
             receive_mqtt_commands()
 
         if clock.ticks_ms() - last_log_cleanup > LOG_CLEANUP_EVERY_MS:
-            logger.FileLogger.clear_old_logs(clock, days=2)
-            last_log_cleanup = clock.ticks_ms()
+            # disable for now, I feel like log cleaning might mess things up.
+            #logger.FileLogger.clear_old_logs(clock, days=2)
+            #last_log_cleanup = clock.ticks_ms()
+            pass 
         
         gc.collect()
-        time.sleep(RUN_CYCLE_SLEEP_MS)
+        time.sleep(RUN_CYCLE_SLEEP_S)
 
 
 try: 
