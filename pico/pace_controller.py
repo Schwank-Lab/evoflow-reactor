@@ -159,7 +159,6 @@ class PaceController():
         self._is_resetting_stepper = False
         self._state_time = None
         self._clock = clock
-        self._current_state = None
         self._background_thread_running = False
         self.run_error = False
         self.is_alive = False
@@ -227,6 +226,9 @@ class PaceController():
         self._btn_left = hardware.button_left
         self._btn_right = hardware.button_right
 
+        # set up state variable
+        self._current_state = self.default_state()
+
     def start(self):
         assert not self._is_running
         assert not self._is_resetting_stepper
@@ -281,6 +283,8 @@ class PaceController():
         if not self._is_running and not self._is_resetting_stepper:
             print('PaceController#stop: already stopped, nothing to do')
             return
+        self._is_running = False
+        self._is_resetting_stepper = False
         while self._background_thread_running:
             pass
         print('PaceController#stop: stopped')  # Don't write to the _logger, it's used for background threads.
@@ -352,6 +356,20 @@ class PaceController():
                 self._inc_right._inc_stirrer_ctl.__bg__restart_motor()
             self._lagoon_stirrer_ctl.__bg__restart_motor()
 
+    def default_state(self):
+        return {
+            'experiment_id': self._experiment_id,
+            'timestamp': self._clock.time_since_epoch(),
+            'lagoon_temp': -1,
+            'lagoon_flow_rate': -1,
+            'inc_left_temp': -1,
+            'inc_left_od': -1,
+            'inc_left_dilution': -1,
+            'inc_right_temp': -1,
+            'inc_right_od': -1,
+            'inc_right_dilution': -1,
+        }
+    
     def _record_state(self):
         global _bg_logger
         _bg_logger.debug('PaceController#record_state')
