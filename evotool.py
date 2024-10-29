@@ -7,6 +7,7 @@ from sys import exit
 import pandas as pd 
 import numpy as np  
 from sklearn.linear_model import LinearRegression
+from datetime import datetime
 import serial.tools.list_ports
 import shutil
 from evoflow_db.idec import Reactor
@@ -335,6 +336,26 @@ def compute_new_config(calibration_folder, args, port):
 ##############################
 
 
+def run_free_space_diagnostic(port): 
+    script_content = """
+import gc 
+import os 
+
+def bytes_to_kb(n_bytes): 
+    return n_bytes >> 10
+
+stats = os.statvfs('/')
+total_space = stats[0] * stats[2]
+free_space = stats[0] * stats[3]
+used_space = total_space - free_space
+print('Free space: ', bytes_to_kb(free_space))
+print('Used space: ', bytes_to_kb(used_space))
+"""
+    script = DIR_TMP / 'diagnostics_space.py'
+    with open(script,  'w') as script_file:
+        script_file.write(script_content)
+    run_script(script, port)
+
 def run_inc_left_od_diagnostic(port): 
     diagnostics_od.generate_script('inc_left', temp_dir=DIR_TMP, script_name='diagnostics_left_od.py')
     run_script(DIR_TMP / 'diagnostics_left_od.py', port)
@@ -465,7 +486,7 @@ def generate_network_config(reactor_id):
 
 def setup_new_reactor(reactor_name, reactor_id, port):
     if reactor_id is None: 
-        new_reactor_id = create_reactor_db_entry(args.reactor_name)
+        new_reactor_id = create_reactor_db_entry(reactor_name)
         print(f'Reactor create with id {new_reactor_id}')
     else: 
         new_reactor_id = reactor_id
@@ -508,7 +529,20 @@ def deploy(scripts: list[str], port: str, dev_mode: bool):
     non_main = [script for script in scripts if 'main.py' not in script]
     for script in non_main: 
         put_ampy(script, Path('/') / Path(script).name, port)
-    
+
+
+def download_logs(local_path: Path, port: str):
+    """ Downloads all logs from the pico."""  
+    log_files = list_ampy('/logs', port)
+    for log_file in log_files:
+        get_ampy(log_file, local_path / Path(log_file).name, port)
+
+
+def clear_logs(port: str):
+    """ Clears logs folder on pico."""
+    log_files = list_ampy('/logs', port)
+    for log_file in log_files: 
+        rm_ampy(log_file, port)    
         
 
 if __name__ == '__main__':
@@ -533,9 +567,17 @@ if __name__ == '__main__':
 
     command_parsers.add_parser('ping', help='Ping the reactor')
 
+    ## Commands for working with pico logs.
+    log_parser = command_parsers.add_parser('logs', help='Helper commands for working with logs on the pico')
+    log_commands = log_parser.add_subparsers(dest='logs_command')
+    log_commands.add_parser('clear', help='Clear all logs on the pico')
+    parsers_logs_dump = log_commands.add_parser('dump', help='Download all logs from the pico')
+    parsers_logs_dump.add_argument('--local', type=str, default=None, help='Local folder to save logs to. If not provided, will stored to a temp directory.')
+
     ## Commands for running diagnostics
     parser_diagnose = command_parsers.add_parser('diagnose', help='Diagnose reactor hardware', aliases=['d'])
     diagnose_hardware_parsers = parser_diagnose.add_subparsers(dest='part')
+    diagnose_hardware_parsers.add_parser('free_space', help='Diagnose free space')
     diagnose_hardware_parsers.add_parser('pumps', help='Diagnose pumps')
     parser_stepper = diagnose_hardware_parsers.add_parser('stepper', help='Diagnose stepper motor')
     parser_stepper.add_argument('type', choices=['angle', 'displacement', 'vol'], help='Specify the type of movement: angle, displacement, or volume')
@@ -636,8 +678,23 @@ if __name__ == '__main__':
         setup_new_reactor(args.reactor_name, args.reactor_id, port)
     elif args.command == 'deploy': 
         deploy(args.scripts, port,  args.dev)
+    elif args.command == 'logs': 
+        if args.logs_command == 'clear':
+            clear_logs(port)
+        elif args.logs_command == 'dump':
+            if args.local is None: 
+                local_path = Path('logs') / datetime.now().strftime('%Y-%m-%d')
+            else: 
+                local_path = Path(args.local)
+            local_path.mkdir(exist_ok=True, parents=True)
+            print(f'Downloading pico logs to {local_path}')
+            download_logs(local_path, port)
+        else: 
+            log_parser.print_help()
     elif args.command == 'diagnose':
-        if args.part == 'pumps':
+        if args.part == 'free_space':
+            run_free_space_diagnostic(port)
+        elif args.part == 'pumps':
             run_script(DIR_DIAGNOSTICS / 'diagnostics_pumps.py', port)
         elif args.part == 'stepper':
             run_stepper_diagnostic(args.type, args.amount, port)
