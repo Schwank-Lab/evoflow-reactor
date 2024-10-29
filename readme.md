@@ -25,20 +25,12 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 
 ### Reactor diagnostics 
 
-<<<<<<< HEAD
 1. Run `python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
 2. Run `python evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
 3. Run `python evotool.py diagnose temp`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
 4. Run `python evotool.py diagnose od_left`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
 5. Run `python evotool.py diagnose od_right`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
 6. Run `python evotool.py diagnose stepper angle 180`. You should observe stepper shaft rotating 180 degrees.
-=======
-1. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_pumps.py`. This will activate pumps from left to right, rotation should be clock-wise
-2. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_stirrers.py`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
-3. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_heaters.py`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
-4. Run `ampy -p $PICO_PORT run diagnostics/diagnostics_od.py`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-5. Run `python diagnostics/diagnostics_stepper.py 180`, where 180 is the number of degrees you want the stepper to rotate. Then run `ampy -p $PICO_PORT run tmp/diagnostics_stepper.py`. You should observe stepper shaft rotating.
->>>>>>> 2d9cd85 (Update readme.md)
 
 ### Reactor calibration 
 
@@ -54,13 +46,8 @@ Follow the instructions below to calibrate individual hardware parts. Note that 
 4. Calibrate the right incubator: `python evotool.py calibrate inc_right_stirrer <speed>`
 5. Calibrate the lagoon: `python evotool.py calibrate lagoon_stirrer <speed>`
 
-<<<<<<< HEAD
-#### OD Calibration 
-=======
-Same for the lagoon stirrer, but with commands `python calibration/calibration_lagoon_stirrer.py 0.25` and then `ampy -p $PICO_PORT run tmp/calibrate_lagoon_stirrer.py`
 
-#### Stepper calibration 
->>>>>>> b0f34c5 (Update readme.md)
+#### OD Calibration 
 
 To calibrate OD, we need to measure ODs of the probes with the known OD value. We have such probes, use some of them. Recommended is 
 
