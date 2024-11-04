@@ -42,7 +42,6 @@ class Logger:
             return "UNKNOWN"
         
     def log(self, level, *args):
-        #TODO: catch exceptions.
         if level >= self.level:
             level_name = self._get_level_name(level)
             timestamp = self.clock.localtime()
@@ -53,60 +52,15 @@ class Logger:
         raise NotImplementedError()
     
 
-class FileLogger(Logger):
-    log_dir = 'logs'
+class SerialLogger(Logger):
 
-    def __init__(self, clock, level=L_INFO, prefix='log'):
+    def __init__(self, clock, serial, level=L_INFO):
         super().__init__(clock, level)
-        self._log_file_prefix = prefix
-        self._create_log_file()
-
-    def _create_log_file(self):
-        # Simplified timestamp using epoch seconds
-        timestamp = self.clock.time_since_epoch()
-        self._log_file_date = utils.timestamp_to_date(timestamp)
-        self._log_file = FileLogger.log_dir + "/" + self._log_file_prefix + "_" + self._log_file_date + ".txt"
+        self._serial = serial 
     
- 
-    def _record_log_message(self, message):
-        curr_date = utils.timestamp_to_date(self.clock.time_since_epoch())
-        if curr_date != self._log_file_date:
-            self._create_log_file()
-        with open(self._log_file, 'a') as f:
-                f.write(message + '\n')
-    
-  
-    @staticmethod
-    def clear_old_logs(clock, days=2):
-        for filename in os.listdir(FileLogger.log_dir):
-            file_path = FileLogger.log_dir + "/" + filename
-            # Use file creation time for comparison (not available in MicroPython, so using a workaround)
-            try:
-                # Workaround: Assume file name contains creation timestamp
-                file_date = filename.split('_')[1].split('.')[0]
-                file_timestamp = utils.date_to_timestamp(file_date)
-                if (clock.time_since_epoch() - file_timestamp) > (days * 24 * 3600):
-                    os.remove(file_path)
-            except ValueError:
-                print(f'Filename {filename} does not contain a valid timestamp; ignore')
-
-
-class MqttLogger(Logger): 
-
-    TOPIC_LOG = 'log'
-    
-    def __init__(self, reactor_id, mqtt_client, clock, level=L_INFO):
-        super().__init__(clock, level)
-        self.mqtt_client = mqtt_client
-        self._reactor_id = reactor_id
-
-    def _record_log_message(self, message):
-        mqtt_msg = json.dumps({
-            'reactor_id': self._reactor_id,
-            'log': message,
-        })
-        # This is very bad because it will block the reactor thread.
-        # self.mqtt_client.publish(MqttLogger.TOPIC_LOG, mqtt_msg)
+    def log(self, message):
+        # TODO: do I need to catch an exception here?
+        self._serial.send_message('logs', message)
 
 
 class ConsoleLogger(Logger): 
