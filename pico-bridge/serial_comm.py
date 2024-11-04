@@ -50,10 +50,13 @@ class SerialComm:
                     line = self.ser.readline().decode().strip()
                     try:
                         msg = json.loads(line)
+                        self._logger.debug(msg)
                         topic = msg.get("topic")
                         data = msg.get("data")
                         if topic in self.listeners:
                             self.listeners[topic](data)
                     except json.JSONDecodeError:
                         print("Received malformed message")
+                else: 
+                    self._logger.debug('No data available')
             time.sleep(1)

@@ -22,6 +22,7 @@ class Task:
     def repeat(self):
         return self.n_repeats > 0 or (self.n_repeats == -1 and self.interval >= 0)
 
+
 class PriorityQueue:
     def __init__(self):
         self.queue = []
@@ -56,18 +57,17 @@ class TaskQueue:
     def __init__(self, clock):
         self._clock = clock
         self._task_queue = PriorityQueue()
-        self._priorities = []
+        self._priorities = set()
 
-    def _put_task(self, t_ms, priority, task):
+    def _put_task(self, t_ms, task, priority):
         """Adds task to the queue.
 
         Params:
             t_ms (int): time at which the task has to be executed. """
         if not priority: 
             priority = max(self._priorities) + 1 if self._priorities else 0
-        if priority in self._priorities:
-            raise ValueError(f"Priority {priority} already exists in the queue.")
-        self._priorities.append(priority)
+        if not priority in self._priorities:
+            self._priorities.add(priority)
         self._task_queue.put((t_ms, priority, task))
 
     def put(self, delay_ms, task, *args,  priority=None):
@@ -113,3 +113,4 @@ class TaskQueue:
 
     def clear(self):
         self._task_queue = PriorityQueue()
+

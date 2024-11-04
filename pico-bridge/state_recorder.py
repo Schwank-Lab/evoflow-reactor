@@ -38,7 +38,7 @@ class FileReactorStateRecorder:
         self.t_last_record = datetime.now().timestamp()
         self.file_path = file_path
         self.file = open(self.file_path, 'w')
-        self.file.write('timestamp,reactor_id,free_memory,used_memory,free_space,used_space\n')
+        self.file.write('timestamp,reactor_id,free_memory,used_memory\n')
 
     def __del__(self):
         self.file.close()
@@ -52,8 +52,8 @@ class FileReactorStateRecorder:
             return
         self.t_last_record = current_time
         timestamp = datetime.now().isoformat()
-        state_str = "{},{},{},{},{},{}\n".format(
-            timestamp, state['reactor_id'], state['free_memory'], state['used_memory'], state['free_space'], state['used_space'])
+        state_str = "{},{},{},{}\n".format(
+            timestamp, state['reactor_id'], state['free_memory'], state['used_memory'])
         self.file.write(state_str)
         self.file.flush()
 
