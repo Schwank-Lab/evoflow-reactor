@@ -1,0 +1,80 @@
+import paho.mqtt.client as mqtt
+from typing import Callable
+import logging 
+import json 
+
+class MqttClient:
+    def __init__(
+        self,
+        client_id: str,
+        broker: str,
+        port: int,
+        topics_handlers: dict[str, Callable] = {},
+        logger = logging.getLogger(__name__),
+    ):
+        self.logger = logger
+        self.broker = broker
+        self.port = port
+        self.topics = list(topics_handlers.keys())
+        self.topics_handlers = {}
+        for topic, handler in topics_handlers.items():
+            self.add_handler(topic, handler)
+
+        self.client = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2,
+            client_id,
+            clean_session=True,
+         )
+        self.client.enable_logger(logger)
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+        self.client.on_disconnect = self.on_disconnect
+    
+    def add_handler(self, topic: str, handler: Callable):
+        if topic in self.topics_handlers:
+            self.topics_handlers[topic].append(handler)
+        else:
+            self.topics_handlers[topic] = [handler]
+
+    def connect(self):
+        """ Asyncronously connects to the MQTT broker. """
+        self.client.connect(self.broker, self.port, 60)
+        self.client.loop_start()
+        
+    def on_connect(self, client, userdata, flags, rc, properties=None):
+        self.logger.debug("MqttListner#on_connect: Connected with result code " + str(rc))
+        self._is_connected = True
+        if len(self.topics) > 0:
+            client.subscribe([(t, 1) for t in self.topics])
+    
+    def on_disconnect(self, client, userdata, dicsonnect_flags, rc, properties):
+        self.logger.debug("MqttListner#on_disconnect")
+        self.logger.debug("client= "  + str(client._client_id))
+        self.logger.debug("userdata= " + str(userdata))
+        self.logger.debug("dicsonnect_flags= " + str(dicsonnect_flags))
+        self.logger.debug("rc= " + str(rc))
+        self.logger.debug("properties= " + str(properties))
+        self._is_connected = False
+
+    def on_message(self, client, userdata, msg):
+        try: 
+            topic = msg.topic
+            data = json.loads(msg.payload.decode("utf-8"))
+        except Exception as e:
+            self.logger.error(f"Error occurred while parsing message\n{msg}")
+            self.logger.error(e, exc_info=True)
+            return
+        
+        self.logger.debug(f"Message on topic {topic} with data {data}")
+        for handler in self.topics_handlers.get(msg.topic, []):
+            try: 
+                handler(data)
+            except Exception as e:
+                self.logger.error(f"An error occurred while handling topic {topic}:  {e}", exc_info=True)
+
+    def send_msg(self, topic: str, msg: str):
+        self.client.publish(topic, msg)
+            
+    def stop(self):
+        self.client.loop_stop()
+        self.client.disconnect()
