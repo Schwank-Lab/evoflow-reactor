@@ -38,7 +38,7 @@ def init_logger(serial):
 def record_experiment_state(): 
     global exp_state_recorder, controller
     state = controller.current_state()
-    reactor_state_recorder.record(state)
+    exp_state_recorder.record(state)
 
 def record_reactor_state():
     global reactor_state_recorder, hardware

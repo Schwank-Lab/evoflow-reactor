@@ -58,9 +58,11 @@ class SerialLogger(Logger):
         super().__init__(clock, level)
         self._serial = serial 
     
-    def log(self, message):
-        # TODO: do I need to catch an exception here?
-        self._serial.send_message('logs', message)
+    def _record_log_message(self, message):
+        try: 
+            self._serial.send_message('logs', message)
+        except Exception as ex:
+            print('exception occured')
 
 
 class ConsoleLogger(Logger): 
