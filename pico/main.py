@@ -65,6 +65,10 @@ def init_controller(task_queue):
 
     experiment_config = utils.load_json('configs/experiment_config.json')
     controller.init(hardware, reactor_config, experiment_config)
+    reactor_state = utils.load_json('state/reactor_state.json')
+    main_logger.info('[MAIN] Reactor state:', reactor_state['status'])
+    if reactor_state['status'] == 'running':
+        controller.start()
 
 def get_controller_state(): 
     if controller.is_running():
@@ -120,7 +124,7 @@ else:
         main_logger.exception('Error in main loop', e)
         restart = True
     finally: 
-        controller.stop() 
+        controller.stop(update_status=False) 
         
     if restart:
         machine.reset()
