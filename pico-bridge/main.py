@@ -1,5 +1,4 @@
 import threading
-import serial.tools.list_ports
 
 from serial_comm import SerialComm
 from network_client import MqttClient
@@ -8,14 +7,6 @@ import config
 import logging
 from pathlib import Path
 
-
-def find_pico_port():
-    """ Automatically detects usb port to which pico is attached."""
-    ports = serial.tools.list_ports.comports()
-    for port in ports:
-        if "Pico" in port.description or "Board" in port.description:
-            return port.device
-    return None
 
 def configure_logging():
       # Configure logging
@@ -43,9 +34,7 @@ def configure_logging():
 
 def main(): 
     logger = configure_logging()    
-    pico_port = find_pico_port() 
-    logger.info(f"Detected Pico port: {pico_port}")
-    serial = SerialComm(pico_port, logger)
+    serial = SerialComm(logger)
   
     mqtt = MqttClient(
         client_id=f"pico-bridge",
@@ -63,6 +52,7 @@ def main():
     mqtt.connect()
     serial.connect()
     serial.start_listening()
+
 
 
 
