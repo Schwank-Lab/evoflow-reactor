@@ -24,11 +24,11 @@ def configure_logging():
 
     # Create handlers
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.INFO)
 
     Path('logs').mkdir(parents=True, exist_ok=True)
     file_handler = logging.FileHandler('logs/pico_bridge.log')
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
 
     # Create formatters and add them to handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -55,8 +55,10 @@ def main():
     )
 
     bridge = EvoBridge(serial, mqtt, logger)
-    serial.add_listener('status/experiment', bridge.forward_experiment_state)
-    serial.add_listener('status/reactor', bridge.forward_reactor_state)
+    
+    serial.add_listener(EvoBridge.EXPERIMENT_STATUS_TOPIC, bridge.forward_experiment_state)
+    serial.add_listener(EvoBridge.REACTOR_STATUS_TOPIC, bridge.forward_reactor_state)
+    serial.add_listener('log', logger.info)
     mqtt.add_handler('commands', bridge.forward_command)
     mqtt.connect()
     serial.connect()

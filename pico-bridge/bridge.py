@@ -6,10 +6,13 @@ import json
 from state_recorder import FileExpStateRecorder, FileReactorStateRecorder
 
 class EvoBridge:
+    EXPERIMENT_STATUS_TOPIC = 'status/experiment'
+    REACTOR_STATUS_TOPIC = 'status/reactor'
     
     def __init__(self, serial: SerialComm, mqtt: MqttClient, logger: Logger):
         self._serial = serial
         self._logger = logger
+        self._mqtt = mqtt
 
         self._exp_state_recorder = FileExpStateRecorder()
         self._reactor_state_recorder = FileReactorStateRecorder()
@@ -19,6 +22,7 @@ class EvoBridge:
         try: 
             state = json.loads(state)
             self._reactor_state_recorder.record(state)
+            self._mqtt.send_msg(EvoBridge.REACTOR_STATUS_TOPIC, state)
         except json.JSONDecodeError as e:
             self._logger.critical('Failed to parse reactor state.', e)
 
@@ -28,6 +32,7 @@ class EvoBridge:
         try: 
             state = json.loads(state)
             self._exp_state_recorder.record(state)
+            self._mqtt.send_msg(EvoBridge.EXPERIMENT_STATUS_TOPIC, state)
         except json.JSONDecodeError as e:
             self._logger.critical('Failed to parse experiment state.', e)
 

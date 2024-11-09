@@ -1,7 +1,7 @@
 import hardware_config
 from hardware import Hardware, Clock
 from pace_controller import PaceController
-from logger import  ConsoleLogger, SerialLogger, CompositeLogger
+from logger import  SerialLogger
 import logger
 from state_recorder import SerialStateRecorder
 from task_queue import TaskQueue
@@ -29,12 +29,10 @@ def init_hardware():
     hardware = Hardware(reactor_config)
     network_config = utils.load_json('configs/network_config.json')    
 
-def init_logger(serial): 
-    global clock, console_logger, serial_logger, main_logger
-    console_logger = ConsoleLogger(clock, level=logger.L_INFO)
-    serial_logger = SerialLogger(clock, serial, level=logger.L_INFO)
-    main_logger = CompositeLogger([console_logger, serial_logger])
-
+def init_logger(comms: SerialComm): 
+    global clock, main_logger
+    main_logger = SerialLogger(clock, comms, level=logger.L_INFO)
+    
 def record_experiment_state(): 
     global exp_state_recorder, controller
     state = controller.current_state()
@@ -90,23 +88,23 @@ def run(task_queue):
             main_logger.exception('PaceController: Error in task queue cycle', ex)
             return 
 
+# the next three commands should never fail, good luck.
+clock = Clock()
+comms = SerialComm()
+init_logger(comms)
 
 try: 
     init_hardware()
-    print('[MAIN] Hardware initialized.')
+    main_logger.info('[MAIN] Hardware initialized.')
 except Exception as e:
-    print('[MAIN] Error initializing hardware') 
+    main_logger.info('[MAIN] Error initializing hardware') 
     machine.reset()
 
 
 if hardware.button_left.value() == 0 and hardware.button_right.value() == 0:
-    print('[MAIN] Detected button press on re-boot, entering dev mode, stopping the run...')
+    main_logger.info('[MAIN] Detected button press on re-boot, entering dev mode, stopping the run...')
 else:
-    clock = Clock()
-    comms = SerialComm()
-     # TODO: what to do if comms is not connected?
     # TODO: receive a ping from the bridge to check if the connection is still alive.
-    init_logger(comms)
     task_queue = TaskQueue(clock)
     init_controller(task_queue)
     init_state_recorder(task_queue)
@@ -116,7 +114,7 @@ else:
         main_logger.info('[MAIN] Run aborted, restarting...')
         restart = True
     except KeyboardInterrupt:
-        print('Aborting the run...')
+        main_logger.info('Aborting the run...')
         restart = False
     except Exception as e:
         main_logger.exception('Error in main loop', e)
