@@ -95,7 +95,6 @@ class Stirrer:
         self.set_speed(speed_frac=1.0)
 
     def set_speed(self, speed_frac):
-        # print('setting speed', top_speed_frac)
         self._motor.duty_u16(int(speed_frac * Stirrer.FULL_SPEED))
                   
     def off(self):

@@ -15,7 +15,6 @@ class MqttClient:
         self.logger = logger
         self.broker = broker
         self.port = port
-        self.topics = list(topics_handlers.keys())
         self.topics_handlers = {}
         for topic, handler in topics_handlers.items():
             self.add_handler(topic, handler)
@@ -42,13 +41,15 @@ class MqttClient:
         self.client.loop_start()
         
     def on_connect(self, client, userdata, flags, rc, properties=None):
-        self.logger.debug("MqttListner#on_connect: Connected with result code " + str(rc))
+        self.logger.info("MqttListner#on_connect: Connected with result code " + str(rc))
         self._is_connected = True
-        if len(self.topics) > 0:
-            client.subscribe([(t, 1) for t in self.topics])
+        topics = self.topics_handlers.keys()
+        if len(topics) > 0:
+            self.logger.info(f"Subscribing to topics {topics}")
+            client.subscribe([(t, 1) for t in topics])
     
     def on_disconnect(self, client, userdata, dicsonnect_flags, rc, properties):
-        self.logger.debug("MqttListner#on_disconnect")
+        self.logger.info("MqttListner#on_disconnect")
         self.logger.debug("client= "  + str(client._client_id))
         self.logger.debug("userdata= " + str(userdata))
         self.logger.debug("dicsonnect_flags= " + str(dicsonnect_flags))
@@ -58,6 +59,7 @@ class MqttClient:
 
     def on_message(self, client, userdata, msg):
         try: 
+            self.logger.info(f"Received message on topic {msg.topic} with payload {msg.payload}")
             topic = msg.topic
             data = json.loads(msg.payload.decode("utf-8"))
         except Exception as e:
@@ -72,7 +74,9 @@ class MqttClient:
             except Exception as e:
                 self.logger.error(f"An error occurred while handling topic {topic}:  {e}", exc_info=True)
 
-    def send_msg(self, topic: str, msg: str):
+    def send_msg(self, topic: str, msg: str|dict):
+        if isinstance(msg, dict):
+            msg = json.dumps(msg)
         self.client.publish(topic, msg)
             
     def stop(self):

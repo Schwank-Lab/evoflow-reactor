@@ -50,19 +50,6 @@ class Logger:
 
     def _record_log_message(self, message):
         raise NotImplementedError()
-    
-
-class SerialLogger(Logger):
-
-    def __init__(self, clock, serial, level=L_INFO):
-        super().__init__(clock, level)
-        self._serial = serial 
-    
-    def _record_log_message(self, message):
-        try: 
-            self._serial.send_message('logs', message)
-        except Exception as ex:
-            print('exception occured')
 
 
 class ConsoleLogger(Logger): 
@@ -73,6 +60,14 @@ class ConsoleLogger(Logger):
     def _record_log_message(self, message):
         print(message)
 
+class SerialLogger(Logger):
+    
+        def __init__(self, clock, serial, level=L_INFO):
+            self.serial = serial
+            super().__init__(clock, level)
+    
+        def _record_log_message(self, message):
+            self.serial.send_message('log', message)
 
 class CompositeLogger(Logger): 
 

@@ -10,6 +10,7 @@ class SerialComm:
         """
         # Use the data channel for communication to keep REPL separate
         self.listeners = {}
+        self._buffer = ""
 
     def add_listener(self, topic, callback):
         """
@@ -21,6 +22,21 @@ class SerialComm:
         """
         self.listeners[topic] = callback
 
+    def _send_error(self, *args):
+        """
+        Send an error message with the given error string.
+        
+        Args:
+            error (str): The error message to send.
+        """
+        try: 
+            args = ["SerialComm: "] + list(args)
+            msg = " ".join(map(str, args))
+            msg = ujson.dumps({"topic": "log", "message": msg})
+            print(msg)
+        except Exception as e: 
+            print("{topic: 'log', message: 'Error sending message: " + str(e) + "'}")
+
     def send_message(self, topic, data):
         """
         Send a JSON message with the given topic and data.
@@ -29,10 +45,12 @@ class SerialComm:
             topic (str): The topic of the message.
             data (dict): The data payload of the message.
         """
-        msg = ujson.dumps({"topic": topic, "data": data})
-        if '\n' in msg: 
-            raise ValueError("Message contains newline character")
-        print(msg)
+        try: 
+            msg = ujson.dumps({"topic": topic, "data": data})
+            msg = msg.replace('\n', '<newline>')
+            print(msg)
+        except Exception as e:
+            self._send_error("Error sending message:", e)
         
     def is_data_available(self, timeout=0):
         """Check if there is data available on stdin."""
@@ -46,29 +64,21 @@ class SerialComm:
         try:
             while self.is_data_available(timeout=0):
                 # Read all available data from stdin
-                data = sys.stdin.read()
+                line = sys.stdin.readline()
+                self.send_message("log", f"SerialComm: Received message")
                 # Decode bytes to string and append to buffer
-                self._buffer += data
-                messages = self._buffer.split('\n')
-
-                # Keep the last part in the buffer (it may be incomplete)
-                self._buffer = messages.pop()  # Last element
-
-                for line in messages:
-                    line = line.strip()
-                    if line:
+                try:
+                    msg_data = ujson.loads(line)
+                    topic = msg_data.get("topic")
+                    data = msg_data.get("data")
+                    if topic in self.listeners:
                         try:
-                            msg_data = ujson.loads(line)
-                            topic = msg_data.get("topic")
-                            data = msg_data.get("data")
-                            if topic in self.listeners:
-                                try:
-                                    self.listeners[topic](data)
-                                except Exception as listener_error:
-                                    print(f"Listener error for topic '{topic}':", listener_error)
-                        except ujson.JSONDecodeError:
-                            print("Received malformed JSON message:", line)
-                        except Exception as e:
-                            print("Error processing message:", e)
+                            self.listeners[topic](data)
+                        except Exception as listener_error:
+                            self._send_error(f"Listener error for topic '{topic}':", listener_error)
+                except Exception as e:
+                    self._send_error("Error processing message:", e)
         except Exception as e:
-            print("Error reading from stdin:", e)
+            self._send_error("Error reading from stdin:", e)
+
+
