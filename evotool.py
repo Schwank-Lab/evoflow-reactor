@@ -10,10 +10,11 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime
 import serial.tools.list_ports
 import shutil
-from evoflow_db.idec import Reactor
+from evoflow_db.idec import Reactor, Experiment, ExperimentConfig
 from evoflow_db import idec_engine
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, update, insert 
+import time 
 
 
 
@@ -380,8 +381,113 @@ stop_all()
         script_file.write(script_content)
     run_script(script, port)
 
+##############################
+#  Experiment commands
+##############################
 
-## Helper functions
+def update_experiment_state(new_state, port):
+    # get experiment id from pico
+    get_ampy('/configs/experiment_config.json', DIR_TMP / 'experiment_config.json', port)
+    with open(DIR_TMP / 'experiment_config.json', 'r') as f:
+        experiment_config = json.load(f)
+        experiment_id = experiment_config['experiment_id']
+    
+    print(f'Setting experiment(experiment_id={experiment_id}) state to {new_state}')
+
+    # update experiment state in db
+    with Session(idec_engine()) as session:
+        update_stmt = (
+            update(Experiment)
+            .where(Experiment.experiment_id == experiment_id)
+            .values(status=new_state)
+        )
+        session.execute(update_stmt)
+        session.commit()
+    
+    # store new experiment state on pico
+    state = {
+        "status": new_state
+    }
+    with open(DIR_TMP / 'experiment_state.json', 'w') as f:
+        json.dump(state, f)
+    put_ampy(DIR_TMP / 'experiment_state.json',  '/state/reactor_state.json', port)
+
+def update_experiment_config(new_config, port):
+    new_config_json = json.loads(new_config)
+
+    # get experiment id from pico
+    get_ampy('/configs/experiment_config.json', DIR_TMP / 'experiment_config.json', port)
+    with open(DIR_TMP / 'experiment_config.json', 'r') as f:
+        experiment_config = json.load(f)
+        experiment_id = experiment_config['experiment_id']
+    
+    print(f'Updating experiment(experiment_id={experiment_id}) config')
+
+    # update experiment config in db
+    with Session(idec_engine()) as session:
+        update_stmt = (
+            update(Experiment)
+            .where(Experiment.experiment_id == experiment_id)
+            .values(exp_config_json=json.dumps(new_config_json))
+        )
+        session.execute(update_stmt)
+        session.commit()
+    
+    # store new experiment config on pico
+    put_ampy(new_config, '/configs/experiment_config.json', port)
+
+
+def new_experiment(experiment_config, experiment_name, port):
+    # get reactor id from pico
+    get_ampy('/configs/network_config.json', DIR_TMP / 'network_config.json', port)
+    with open(DIR_TMP / 'network_config.json', 'r') as f:
+        network_config = json.load(f)
+        reactor_id = network_config['reactor_id']
+    
+    print(f'Creating new experiment for reactor_id={reactor_id}')
+
+    with open(experiment_config, 'r') as f:
+        config_json = json.load(f)
+
+    current_timestamp = int(time.time())
+    
+    # Store data to db.
+    with Session(idec_engine()) as session:
+        stmt = insert(Experiment).values(
+            reactor_id=reactor_id,
+            name=experiment_name,
+            timestamp=current_timestamp,
+            status="pause",
+            inserted_at=datetime.now()
+        )
+        result = session.execute(stmt)
+        exp_id = result.inserted_primary_key[0]  # Access the newly inserted experiment_id
+        print('Inserted experiment id: ', exp_id)
+        
+        stmt_config = insert(ExperimentConfig).values(
+            experiment_id=exp_id,
+            exp_config_json=json.dumps(config_json),
+            timestamp=current_timestamp,
+            inserted_at=datetime.now(),
+        )
+        
+        session.execute(stmt_config)
+        session.commit()
+
+    # store new experiment id on pico
+    config_json['experiment_id'] = exp_id
+    with open(DIR_TMP / 'experiment_config.json', 'w') as f:
+        json.dump(config_json, f)
+    put_ampy(DIR_TMP / 'experiment_config.json', '/configs/experiment_config.json', port)
+
+
+
+
+
+##############################
+# Helper commands
+##############################
+
 def run_script(script: Path, port): 
     return run_ampy(f'run {script}', port)
 
@@ -634,6 +740,21 @@ if __name__ == '__main__':
     parser_calibrate_new_config.add_argument('--bact_stepper_volume', type=float, default=None, 
                                              help='Volume of liquid dispensed by the bacteria stepper motor.')
     
+    ## Commands to control pico exeriment. 
+    parser_experiment = command_parsers.add_parser('experiment', help='Control experiment')
+    experiment_subparsers = parser_experiment.add_subparsers(dest='experiment_command')
+    
+    experiment_subparsers.add_parser('start', help='Start the experiment')
+    experiment_subparsers.add_parser('stop', help='Stop the experiment')
+    experiment_subparsers.add_parser('pause', help='Pause the experiment')
+    
+    parser_experiment_update = experiment_subparsers.add_parser('update', help='Update experiment config')
+    parser_experiment_update.add_argument('config', type=str, help='Path to the new config file')
+
+    parser_experiment_new = experiment_subparsers.add_parser('new', help='Start a new experiment')
+    parser_experiment_new.add_argument('name', type=str, help='Name of the new experiment')
+    parser_experiment_new.add_argument('config', type=str, help='Path to the new experiment config file')
+
     args = parser.parse_args()
 
     ## Load config
@@ -768,5 +889,22 @@ if __name__ == '__main__':
             compute_new_config(calibration_folder, args, port)
         else: 
             parser_calibrate.print_help()
+    elif args.command == 'experiment':
+        if args.experiment_command in {'start', 'stop', 'pause'}:
+            update_experiment_state(args.experiment_command, port)
+        elif args.experiment_command == 'update':
+            path = Path(args.config_path)
+            if not path.exists():
+                print(f'Config file {path} does not exist.')
+                exit(1)
+            update_experiment_config(path, port)
+        elif args.experiment_command == 'new':
+            path = Path(args.config)
+            if not path.exists():
+                print(f'Config file {path} does not exist.')
+                exit(1)
+            new_experiment(path, args.name, port)
+        else:
+            parser_experiment.print_help()
     else: 
-        parser.print_help() 
+        parser.print_help()
