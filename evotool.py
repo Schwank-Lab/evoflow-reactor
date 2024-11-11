@@ -406,7 +406,7 @@ def update_experiment_state(new_state, port):
     
     # store new experiment state on pico
     state = {
-        "status": new_state
+        "status": 'running' if new_state == 'start' else 'idle',
     }
     with open(DIR_TMP / 'experiment_state.json', 'w') as f:
         json.dump(state, f)
