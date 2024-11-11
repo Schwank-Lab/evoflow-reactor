@@ -28,6 +28,9 @@ class MqttClient:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
+
+        self.client.retry_first_connection = True
+
     
     def add_handler(self, topic: str, handler: Callable):
         if topic in self.topics_handlers:
@@ -37,7 +40,8 @@ class MqttClient:
 
     def connect(self):
         """ Asyncronously connects to the MQTT broker. """
-        self.client.connect(self.broker, self.port, 60)
+        self.client.reconnect_delay_set(min_delay=30, max_delay=30)
+        self.client.connect_async(self.broker, self.port, 60) 
         self.client.loop_start()
         
     def on_connect(self, client, userdata, flags, rc, properties=None):
