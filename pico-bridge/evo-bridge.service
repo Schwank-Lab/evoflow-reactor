@@ -1,0 +1,13 @@
+[Unit]
+Description=evo-bridge-1-service
+After=network.target
+
+[Service]
+ExecStart=/home/evohub/.pyenv/versions/3.12.7/bin/poetry run python main.py
+Restart=always
+User=evohub
+WorkingDirectory=/home/evohub/evoflow-reactor/pico-bridge
+
+[Install]
+WantedBy=multi-user.target
+
