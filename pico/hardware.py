@@ -266,8 +266,8 @@ class Hardware:
         # pumps 
 
         self.pump_inc_left_to_lagoon = TMC2208Stepper(step_pin=Pin(12, Pin.OUT, value=0), 
-                                                      dir_pin=Pin(11, Pin.OUT, value=0))
-        self.pump_inc_right_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=0))
+                                                      dir_pin=Pin(11, Pin.OUT, value=1))
+        self.pump_inc_right_to_lagoon = TMC2208Stepper(step_pin=Pin(8, Pin.OUT, value=0), dir_pin=Pin(9, Pin.OUT, value=1))
         
         self.pump_lagoon_to_waste = Pump(Pin(19, Pin.OUT, value=0), mode=Pump.MODE_PIN) 
 
