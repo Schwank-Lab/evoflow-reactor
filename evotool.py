@@ -413,7 +413,8 @@ def update_experiment_state(new_state, port):
     put_ampy(DIR_TMP / 'experiment_state.json',  '/state/reactor_state.json', port)
 
 def update_experiment_config(new_config, port):
-    new_config_json = json.loads(new_config)
+    with open(new_config, 'r') as f:
+        new_config_json = json.load(f)
 
     # get experiment id from pico
     get_ampy('/configs/experiment_config.json', DIR_TMP / 'experiment_config.json', port)
@@ -426,15 +427,18 @@ def update_experiment_config(new_config, port):
     # update experiment config in db
     with Session(idec_engine()) as session:
         update_stmt = (
-            update(Experiment)
-            .where(Experiment.experiment_id == experiment_id)
+            update(ExperimentConfig)
+            .where(ExperimentConfig.experiment_id == experiment_id)
             .values(exp_config_json=json.dumps(new_config_json))
         )
         session.execute(update_stmt)
         session.commit()
     
     # store new experiment config on pico
-    put_ampy(new_config, '/configs/experiment_config.json', port)
+    new_config_json['experiment_id'] = experiment_id
+    with open(DIR_TMP / 'experiment_config.json', 'w') as f:
+        json.dump(new_config_json, f)
+    put_ampy(DIR_TMP / 'experiment_config.json', '/configs/experiment_config.json', port)
 
 
 def new_experiment(experiment_config, experiment_name, port):
@@ -893,7 +897,7 @@ if __name__ == '__main__':
         if args.experiment_command in {'start', 'stop', 'pause'}:
             update_experiment_state(args.experiment_command, port)
         elif args.experiment_command == 'update':
-            path = Path(args.config_path)
+            path = Path(args.config)
             if not path.exists():
                 print(f'Config file {path} does not exist.')
                 exit(1)
