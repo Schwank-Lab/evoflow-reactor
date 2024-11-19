@@ -4,7 +4,7 @@ import math
 from hardware import Hardware, Clock
 import hardware_config
 import pace_controller
-from logger import FileLogger, ConsoleLogger
+from logger import ConsoleLogger
 import logger
 
 
@@ -44,7 +44,7 @@ def calibrate_lagoon_stirrer(top_speed_frac):
 def _calibrate_stirrer(top_speed_frac, stirrer):
     print(f'Restarting lagoon stirrer at top speed fraction {top_speed_frac:.2f}')
     q = pace_controller.TaskQueue(clk)
-    ctl = pace_controller.StirrerController(stirrer, top_speed_frac, q, priority=1)
+    ctl = pace_controller.StirrerController(stirrer, top_speed_frac, q, logger=log)
     ctl.restart_motor()
     i = 0
     while not q.empty():
@@ -66,9 +66,9 @@ def calibrate_temp(target_temp):
     lagoon_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
     
     print(f'Setting target temperature to {target_temp}C.')
-    inc_left_ctl = pace_controller.TempController(hw.inc_left.temp_sensor, hw.inc_left.heater, target_temp)
-    inc_right_ctl = pace_controller.TempController(hw.inc_right.temp_sensor, hw.inc_right.heater, target_temp)
-    lagoon_ctl = pace_controller.TempController(hw.temp_sensor_lagoon, hw.heater_lagoon, target_temp)
+    inc_left_ctl = pace_controller.TempController(hw.inc_left.temp_sensor, hw.inc_left.heater, target_temp, logger=log)
+    inc_right_ctl = pace_controller.TempController(hw.inc_right.temp_sensor, hw.inc_right.heater, target_temp, logger=log)
+    lagoon_ctl = pace_controller.TempController(hw.temp_sensor_lagoon, hw.heater_lagoon, target_temp, logger=log)
     i = 0
     while True:
         inc_left_temps[i % num_temps_to_avg] = inc_left_ctl.current_temp()
@@ -95,13 +95,13 @@ def calibrate_temp(target_temp):
 
 def calibrate_inc_left_od(num_probes=5):
     q = pace_controller.TaskQueue(clk)
-    stirrer = pace_controller.StirrerController(hw.inc_left.stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, priority=1)
+    stirrer = pace_controller.StirrerController(hw.inc_left.stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, logger=log)
     _calibrate_od(num_probes, stirrer, hw.inc_left.led, hw.inc_left.od_sensor, q)
 
 
 def calibrate_inc_right_od(num_probes=5):
     q = pace_controller.TaskQueue(clk)
-    stirrer = pace_controller.StirrerController(hw.inc_right.stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, priority=1)
+    stirrer = pace_controller.StirrerController(hw.inc_right.stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, logger=log)
     _calibrate_od(num_probes, stirrer, hw.inc_right.led, hw.inc_right.od_sensor, q)
 
 
@@ -128,7 +128,7 @@ def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):
         # Measure OD
         for num_measurement in range(num_measurements_per_probe):
             led.on()
-            time.sleep_ms(pace_controller.ODController.TIME_OD_DELAY)
+            time.sleep(pace_controller.ODController.TIME_OD_DELAY / 1000)
             raw = sensor.read_raw()
             measurements[num_probe].append(raw)
             led.off()
