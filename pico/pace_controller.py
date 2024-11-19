@@ -515,8 +515,27 @@ class LagoonFlowController():
             task_queue.repeat(self.WASTE_BURST_INTERVAL,
                               self.waste_pump, task_queue)
         if self._ara_conc > 0:
+            self.start_ara_stepper(task_queue)
+
+
+    def start_ara_stepper(self, task_queue): 
+        if self._ara_steps_per_sec > 10:
             self._ara_stepper.set_frequency(int(self._ara_steps_per_sec))
             self._ara_stepper.on()
+        else:
+            self._logger.info('LagoonFlowController: arabinose induction too low to run continuously, will run in intervals instead.')
+            off_factor = 10 if self._ara_steps_per_sec > 1 else 50
+            ara_steps_per_sec_adjusted = int(self._ara_steps_per_sec * off_factor)
+            ara_duration_on_s = 2
+            ara_interval = ara_duration_on_s * (off_factor - 1)
+            self._logger.info(f'LagoonFlowController: arabinose induction adjusted to {ara_steps_per_sec_adjusted} steps/s, on for {ara_duration_on_s}s, off for {ara_interval}s')
+            self._ara_stepper.set_frequency(ara_steps_per_sec_adjusted)
+            task_queue.repeat(s_to_ms(ara_interval), self.ara_stepper_on, task_queue, ara_duration_on_s)
+
+        
+    def ara_stepper_on(self, task_queue, duration_on_s):
+        self._ara_stepper.on()
+        task_queue.put(s_to_ms(duration_on_s), self._ara_stepper.off)
 
     def waste_pump(self, task_queue: TaskQueue):
         self._waste_pump.on()
