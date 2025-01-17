@@ -524,7 +524,7 @@ class LagoonFlowController():
             self._ara_stepper.on()
         else:
             self._logger.info('LagoonFlowController: arabinose induction too low to run continuously, will run in intervals instead.')
-            off_factor = 10 if self._ara_steps_per_sec > 1 else 50
+            off_factor = 10 if self._ara_steps_per_sec > 1 else 100 if self._ara_steps_per_sec > 0.1 else 1000
             ara_steps_per_sec_adjusted = int(self._ara_steps_per_sec * off_factor)
             ara_duration_on_s = 2
             ara_interval = ara_duration_on_s * (off_factor - 1)
@@ -543,3 +543,4 @@ class LagoonFlowController():
 
     def flow_rate(self):
         return self._flow_rate
+
