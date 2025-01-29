@@ -412,19 +412,10 @@ def update_experiment_state(new_state, port):
         json.dump(state, f)
     put_ampy(DIR_TMP / 'experiment_state.json',  '/state/reactor_state.json', port)
 
-def update_experiment_config(new_config, port):
-    with open(new_config, 'r') as f:
-        new_config_json = json.load(f)
 
-    # get experiment id from pico
-    get_ampy('/configs/experiment_config.json', DIR_TMP / 'experiment_config.json', port)
-    with open(DIR_TMP / 'experiment_config.json', 'r') as f:
-        experiment_config = json.load(f)
-        experiment_id = experiment_config['experiment_id']
-    
-    print(f'Updating experiment(experiment_id={experiment_id}) config')
-
-    # update experiment config in db
+def _push_new_config(new_config_json, port):
+    experiment_id = new_config_json['experiment_id']
+     # update experiment config in db
     with Session(idec_engine()) as session:
         update_stmt = (
             update(ExperimentConfig)
@@ -435,11 +426,38 @@ def update_experiment_config(new_config, port):
         session.commit()
     
     # store new experiment config on pico
-    new_config_json['experiment_id'] = experiment_id
     with open(DIR_TMP / 'experiment_config.json', 'w') as f:
         json.dump(new_config_json, f)
     put_ampy(DIR_TMP / 'experiment_config.json', '/configs/experiment_config.json', port)
 
+
+def update_experiment_config(new_config, port):
+    with open(new_config, 'r') as f:
+        new_config_json = json.load(f)
+
+    # get experiment id from pico
+    get_ampy('/configs/experiment_config.json', DIR_TMP / 'experiment_config.json', port)
+    with open(DIR_TMP / 'experiment_config.json', 'r') as f:
+        experiment_config = json.load(f)
+        experiment_id = experiment_config['experiment_id']
+        new_config_json['experiment_id'] = experiment_id
+    
+    print(f'Updating experiment(experiment_id={experiment_id}) config')
+    _push_new_config(new_config_json, port)
+
+
+def update_flow_rate(flow_rate, port):
+    """ Update lagoon dilution rate, leaving the rest of the config unchanged."""
+    tmp_config = DIR_TMP / 'copy_experiment_config.json'
+    download_experiment_config(port, tmp_config)
+    with open(tmp_config, 'r') as f:
+        experiment_config = json.load(f)
+        old_flow_rate = experiment_config['lagoon']['flow_rate']
+        print(f'Updating lagoon flow rate from {old_flow_rate} to {flow_rate}')
+        experiment_config['lagoon']['flow_rate'] = flow_rate
+        _push_new_config(experiment_config, port)
+    
+    
 
 def new_experiment(experiment_config, experiment_name, port):
     # get reactor id from pico
@@ -485,7 +503,10 @@ def new_experiment(experiment_config, experiment_name, port):
     put_ampy(DIR_TMP / 'experiment_config.json', '/configs/experiment_config.json', port)
 
 
-
+def download_experiment_config(port, local_path):
+    """Downloads experiment config from the pico."""
+    get_ampy('/configs/experiment_config.json', local_path, port)
+    print(f'Downloaded experiment config to {local_path}')
 
 
 ##############################
@@ -755,6 +776,12 @@ if __name__ == '__main__':
     parser_experiment_update = experiment_subparsers.add_parser('update', help='Update experiment config')
     parser_experiment_update.add_argument('config', type=str, help='Path to the new config file')
 
+    parser_experiment_download = experiment_subparsers.add_parser('get-config', help='Download experiment config')
+    parser_experiment_download.add_argument('local_path', type=str, help='Local path to save the config file')
+
+    parser_experiment_update_flow_rate = experiment_subparsers.add_parser('update-flow-rate', help='Update lagoon flow rate')
+    parser_experiment_update_flow_rate.add_argument('flow_rate', type=float, help='New flow rate')
+
     parser_experiment_new = experiment_subparsers.add_parser('new', help='Start a new experiment')
     parser_experiment_new.add_argument('name', type=str, help='Name of the new experiment')
     parser_experiment_new.add_argument('config', type=str, help='Path to the new experiment config file')
@@ -908,6 +935,19 @@ if __name__ == '__main__':
                 print(f'Config file {path} does not exist.')
                 exit(1)
             new_experiment(path, args.name, port)
+        elif args.experiment_command == 'get-config':
+            path = Path(args.local_path)
+            if not path.exists():
+                print(f'Local path {path} does not exist.')
+                exit(1)
+            download_experiment_config(port, path)
+        elif args.experiment_command == 'update-flow-rate':
+            if args.flow_rate < 0:
+                print('Flow rate cannot be negative.')
+                exit(1)
+            if args.flow_rate > 3:
+                print('Warning: setting flow rate about 3 volums/hour is not recommended.')
+            update_flow_rate(args.flow_rate, port)
         else:
             parser_experiment.print_help()
     else: 
