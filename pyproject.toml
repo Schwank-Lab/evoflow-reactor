@@ -7,23 +7,22 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
-dependencies = [
-    "rshell>=0.0.32,<0.1.0",
-    "adafruit-ampy>=1.1.0,<2.0.0",
-    "paho-mqtt>=2.1.0,<3.0.0",
-    "jupyter>=1.0.0,<2.0.0",
-    "pyserial>=3.5,<4.0",
-    "pandas>=2.2.2,<3.0.0",
-    "scikit-learn>=1.5.1,<2.0.0",
-    "thonny>=4.1.4,<5.0.0",
-]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rshell = ">=0.0.32,<0.1.0"
+adafruit-ampy = ">=1.1.0,<2.0.0"
+paho-mqtt = ">=2.1.0,<3.0.0"
+jupyter = ">=1.0.0,<2.0.0"
+pyserial = ">=3.5,<4.0"
+pandas = ">=2.2.2,<3.0.0"
+scikit-learn = ">=1.5.1,<2.0.0"
+thonny = ">=4.1.4,<5.0.0"
+evoflow_db = { git = "git@github.com/Schwank-Lab/evoflow-monitor.git", branch = "main", subdirectory = "evohub/evoflow_db" }
 
 [tool.poetry]
 package-mode = true
 packages = [{include = "diagnostics"}]
-
-[tool.poetry.dependencies]
-evoflow_db = { git = "https://github.com/Schwank-Lab/evoflow-monitor.git", branch = "main", subdirectory = "evohub/evoflow_db" }
 
 [build-system]
 requires = ["poetry-core"]
