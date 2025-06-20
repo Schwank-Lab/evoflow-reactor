@@ -7,7 +7,6 @@ readme = "README.md"
 
 packages = [
     { include = "diagnostics" },
-    { include = "setup-tool"}
 ]
 
 [tool.poetry.dependencies]
