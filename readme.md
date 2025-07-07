@@ -2,35 +2,32 @@
 
 Below are the steps required to setup an evoflow reactor. 
 
-### Requirements
+### Host Requirements
 You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the two. 
 
- 1. Install micropython on RPI Pico following instructions at [https://micropython.org/download/RPI_PICO/](https://micropython.org/download/RPI_PICO/)
- 2. Host needs python 3.12 and poetry
-   2.1 Install python, following instructions at https://github.com/pyenv/pyenv
-   2.2 Install pipx following instructions at https://pipx.pypa.io/stable/installation/ 
-   2.3 Install poetry using `pipx install poetry`
- 3. Run `git clone git@github.com:Schwank-Lab/evoflow-reactor.git` (you might have to register your laptop with github, follow instructions [here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) 
- 4. Navigate to the code folder and run `poetry install`
+ 1. Host needs python 3.12 and poetry
+   1.1 Install python, following instructions at https://github.com/pyenv/pyenv
+   1.2 Install pipx following instructions at https://pipx.pypa.io/stable/installation/ 
+   1.3 Install poetry using `pipx install poetry`
+ 2. Run `git clone git@github.com:Schwank-Lab/evoflow-reactor.git` (you might have to register your laptop with github, follow instructions [here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) 
+ 3. Navigate to the code folder and run `poetry install`
       
 ### Reactor setup
-
- 1. Run `poetry shell`
- 2. Run `python setup-tool/find_pico.py`
- 3. Run `export PICO_PORT=$(<tmp/pico_port.txt)` 
- 4. Run `poetry run python setup-tool/main.py --reactor_id XX --pico_port $PICO_PORT REACTOR_NAME`.
+ 1. Install micropython on RPI Pico following instructions. Attach RPI Pico via USB, it should mount as a folder. Drag micropython script from `micropython/RPI_PICO_W-20240602-v1.23.0.uf2` to that folder. More info can be found [here](https://micropython.org/download/RPI_PICO/)
+ 2. Run `poetry run python evotool.py --reactor_id XX REACTOR_NAME`.
       XX - reactor id, when in doubt remove the `--reactor_id XX` part of the command and a new reactor will  be registered in the database
       REACTOR_NAME - reactor name, should be written on the reactor itself, e.g. Alpha
- 5. Run `sh /tmp/commands.sh`. Make sure there's no errors 
+ 3. Verify that reactor is registered in the [dashboard](http://10.66.4.7:3000), it should appear in the reactor dropdown.
+ 4. Run `poetry run python evotool.py deploy all` 
 
 ### Reactor diagnostics 
 
-1. Run `python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
-2. Run `python evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
-3. Run `python evotool.py diagnose temp`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
-4. Run `python evotool.py diagnose od_left`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-5. Run `python evotool.py diagnose od_right`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-6. Run `python evotool.py diagnose stepper angle 180`. You should observe stepper shaft rotating 180 degrees.
+1. Run `poetry run python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
+2. Run `poetry run python evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
+3. Run `poetry run python evotool.py diagnose temp`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
+4. Run `poetry run python evotool.py diagnose od_left`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
+5. Run `poetry run python evotool.py diagnose od_right`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
+6. Run `poetry python evotool.py diagnose stepper angle 180`. You should observe stepper shaft rotating 180 degrees.
 
 ### Reactor calibration 
 
