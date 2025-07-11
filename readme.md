@@ -31,27 +31,27 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 
 ### Reactor calibration 
 
-Run `python evotool.py calibrate new <your_experiment_name>` (e.g. `python evotool calibrate new calibration_logs/20240405_bravo`) to start a new calibration session.
+Run `poetry run python evotool.py calibrate new <your_experiment_name>` (e.g. `python evotool calibrate new calibration_logs/20240405_bravo`) to start a new calibration session.
 
-Follow the instructions below to calibrate individual hardware parts. Note that you can choose to skip the calibration of a certain part, e.g. stirrers. In that case, the reactor config that is currently stored on the evoflow reactor will be used. If you would like to use values from the default config instead, run `python evotool calibrate new <your_experiment_name> --default_config`. 
+Follow the instructions below to calibrate individual hardware parts. Note that you can choose to skip the calibration of a certain part, e.g. stirrers. In that case, the reactor config that is currently stored on the evoflow reactor will be used. If you would like to use values from the default config instead, run `poetry run python evotool.py calibrate new <your_experiment_name> --default_config`. 
 
 #### Stirrer Calibration 
 
 1. Put a probe with removed lid into the left incubator.
-2. Run `python evotool.py calibrate inc_left_stirrer <speed>`, e.g. `python evotool.py calibrate inc_left_stirrer 0.25`
+2. Run `poetry run python evotool.py calibrate inc_left_stirrer <speed>`, e.g. `python evotool.py calibrate inc_left_stirrer 0.25`
 3. Observe the vortex in the probe. Vortex should be present but not too deep, to not obstruct the OD sensor. 
-4. Calibrate the right incubator: `python evotool.py calibrate inc_right_stirrer <speed>`
-5. Calibrate the lagoon: `python evotool.py calibrate lagoon_stirrer <speed>`
+4. Calibrate the right incubator: `poetry run python evotool.py calibrate inc_right_stirrer <speed>`
+5. Calibrate the lagoon: `poetry run python evotool.py calibrate lagoon_stirrer <speed>`
 
 
 #### OD Calibration 
 
 To calibrate OD, we need to measure ODs of the probes with the known OD value. We have such probes, use some of them. Recommended is 
 
-1. Run `python evotool.py calibrate inc_left_od <od1> <od2> <od3>` and follow instructions.
-2. Run `python evotool.py calibrate inc_right_od <od1> <od2> <od3>` and follow instructions.
+1. Run `poetry run python evotool.py calibrate inc_left_od <od1> <od2> <od3>` and follow instructions.
+2. Run `poetry run python evotool.py calibrate inc_right_od <od1> <od2> <od3>` and follow instructions.
 
-Recommended ODs to use are `python evotool.py calibrate inc_left_od 0.1 0.4 0.6 0.8 1.0`
+Recommended ODs to use are `poetry run python evotool.py calibrate inc_left_od 0.1 0.4 0.6 0.8 1.0`
 
 
 #### Bacterial Stepper Calibration 
@@ -61,7 +61,7 @@ Bacterial stepper motors pump bacteria from incubators into the lagoon at a spec
 1. Attach tubing to the inc_left -> lagoon pump (front left stepper pump). Add ~100ml of liquid into a bottle, dip the input tube into that bottle.
 2. Prime the pump by running `python evotool.py calibrate bact_stepper`. Once you see liquid coming out from the other end of the tube, interrupt the screen using `Ctrl+C`. 
 3. Put the outlet into an empty bottle, measure the weight of the empty bottle beforehand.
-4. Run `python evotool.py calibrate bact_stepper`. This will run 10,000 steps, you can change the default by supplying `--num_steps <value>` flag. 
+4. Run `poetry run python evotool.py calibrate bact_stepper`. This will run 10,000 steps, you can change the default by supplying `--num_steps <value>` flag. 
 5. Measure the volume after pumping is finished.
 
 Note: you can specify custom PWM value by using `--pwm <value>` flag, e.g. `python evotool.py calibrate bact_stepper 50 --pwm 1000`
@@ -82,7 +82,7 @@ If that's not the case, execute two more commands:
 To calibrate the temperature, we need to heat both lagoon and tubribostats to a pre-defined temperature and then measure the actual temperature. 
 Recommended set of temperature to use are: 27, 30, 35, 39
 
-1. Run `python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `python evotool.py calibrate temp 25`
+1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`
 2. Run `ampy -p $PICO_PORT run temp/calibrate_temp.py`
 3. Monitor the output, after you see that `T(inc_left)`, `T(lagoon)` and `T(inc_right)` have all reached the defined temperature, measure the actual temperature in the glass tubes as well as the values `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)`
 4. Repeat for every target temperature.s
@@ -90,7 +90,7 @@ Recommended set of temperature to use are: 27, 30, 35, 39
 
 #### Calculate new config based on the calibrated values. 
 
-Run `python evotool.py calibrate compute_config`.
+Run `poetry run python evotool.py calibrate compute_config`.
 
 If you calibrated bacterial stepper motor, provide the pumped volume that you measured by specifying `--bact_stepper_volume <volume_ml>`
 If you calibrated temperature, provide `--inc_left_measured_temps <t1> <t2> <t3>` for the temperatures you read from `T_raw(inc_left)` and `--inc_left_target_temps <t1> <t2> <t3>` for the temperatures you measured using an external therometer. Do the same for `--inc_right_measured_temps`, `--inc_right_target_temps`, `--lagoon_measured_temps`, and `--lagoon_target_temps`.
