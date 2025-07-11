@@ -74,6 +74,7 @@ We need to calibrate the direction of the induction stepper motor.
 2. Observe the rotation of the stepper shaft, it should be turning **clockwise**, when looked from the direction of the motor.
  
 If that's not the case, execute two more commands: 
+
 3. Run `python evotool.py calibrate induction_stepper -1`
 4. Now the shaft should be turning in the correct direction.
 
@@ -83,9 +84,8 @@ To calibrate the temperature, we need to heat both lagoon and tubribostats to a 
 Recommended set of temperature to use are: 27, 30, 35, 39
 
 1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`
-2. Run `ampy -p $PICO_PORT run temp/calibrate_temp.py`
-3. Monitor the output, after you see that `T(inc_left)`, `T(lagoon)` and `T(inc_right)` have all reached the defined temperature, measure the actual temperature in the glass tubes as well as the values `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)`
-4. Repeat for every target temperature.s
+2. Monitor the output, after you see that `T(inc_left)`, `T(lagoon)` and `T(inc_right)` have all reached the defined temperature, measure the actual temperature in the glass tubes as well as the values `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)`
+3. Repeat for every target temperature.
 
 
 #### Calculate new config based on the calibrated values. 
