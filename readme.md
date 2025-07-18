@@ -59,7 +59,7 @@ Recommended ODs to use are `poetry run python evotool.py calibrate inc_left_od 0
 Bacterial stepper motors pump bacteria from incubators into the lagoon at a specified flow rate. We only calibrate the front left stepper pump and assume that the front right stepper pump works the same way.
 
 1. Attach tubing to the inc_left -> lagoon pump (front left stepper pump). Add ~100ml of liquid into a bottle, dip the input tube into that bottle.
-2. Prime the pump by running `python evotool.py calibrate bact_stepper`. Once you see liquid coming out from the other end of the tube, interrupt the screen using `Ctrl+C`. 
+2. Prime the pump by running `poetry run python evotool.py calibrate bact_stepper`. Once you see liquid coming out from the other end of the tube, interrupt the screen using `Ctrl+C`. 
 3. Put the outlet into an empty bottle, measure the weight of the empty bottle beforehand.
 4. Run `poetry run python evotool.py calibrate bact_stepper`. This will run 10,000 steps, you can change the default by supplying `--num_steps <value>` flag. 
 5. Measure the volume after pumping is finished.
@@ -70,12 +70,12 @@ Note: you can specify custom PWM value by using `--pwm <value>` flag, e.g. `pyth
 
 We need to calibrate the direction of the induction stepper motor. 
 
-1. Run `python evotool.py calibrate induction_stepper 1`
+1. Run `poetry run python evotool.py calibrate induction_stepper 1`
 2. Observe the rotation of the stepper shaft, it should be turning **clockwise**, when looked from the direction of the motor.
  
 If that's not the case, execute two more commands: 
 
-3. Run `python evotool.py calibrate induction_stepper -1`
+3. Run `poetry run python evotool.py calibrate induction_stepper -1`
 4. Now the shaft should be turning in the correct direction.
 
 #### Temperature Calibration
