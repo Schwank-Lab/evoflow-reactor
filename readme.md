@@ -134,7 +134,9 @@ Save the file above to the filesystem and provide the path to this file to the e
 ## Controlling experiment 
 
 To start an experiment, run `poetry run python evotool.py experiment start` 
+
 To pause an experiment, run `poetry run python evotool.py experiment pause`
+
 To update the flow rate, run `poetry run python evotool.py update-flow-rate 1.0`, where `1.0` is the desired flow rate. 
 
 ## Development
