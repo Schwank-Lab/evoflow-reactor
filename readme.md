@@ -96,6 +96,47 @@ If you calibrated bacterial stepper motor, provide the pumped volume that you me
 If you calibrated temperature, provide `--inc_left_measured_temps <t1> <t2> <t3>` for the temperatures you read from `T_raw(inc_left)` and `--inc_left_target_temps <t1> <t2> <t3>` for the temperatures you measured using an external therometer. Do the same for `--inc_right_measured_temps`, `--inc_right_target_temps`, `--lagoon_measured_temps`, and `--lagoon_target_temps`.
 
 
+## Experiment Control 
+
+## Creating a new experiment 
+
+Run `poetry run python evotool.py experiment new <your_expreiment_name> <path/to/experiment/config>`
+
+Experiment config needs to be saved as a valid json file, here's a default example that you can update as necessary: 
+
+```
+{
+    "inc_left": {
+        "use": false,
+        "target_od": 0.7,
+        "target_temp": 37
+
+    },
+    "inc_right": {
+        "use": true,
+        "target_od": 0.7,
+        "target_temp": 37
+    },
+    "lagoon": {
+        "target_temp": 37,
+        "volume": 7,
+        "flow_rate": 0, 
+        "inc_left_frac": 0.0, 
+        "inc_right_frac": 1.0,
+        "arabinose_stock_concentration": 2000,
+        "arabinose_target_concentration": 0
+    }
+}
+```
+
+Save the file above to the filesystem and provide the path to this file to the evotool when creating a new experiment. 
+
+## Controlling experiment 
+
+To start an experiment, run `poetry run python evotool.py experiment start` 
+To pause an experiment, run `poetry run python evotool.py experiment pause`
+To update the flow rate, run `poetry run python evotool.py update-flow-rate 1.0`, where `1.0` is the desired flow rate. 
+
 ## Development
 
 Manually insert a new experiment to the database: 
