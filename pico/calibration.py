@@ -1,7 +1,7 @@
 import time 
 import math 
 
-from hardware import Hardware, Clock
+from hardware import Hardware, Clock, TMC2208Stepper
 import hardware_config
 import pace_controller
 from logger import ConsoleLogger
@@ -120,7 +120,7 @@ def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):
             time.sleep(1)
 
         # Start the stirrer
-        stirrer_ctl.__bg__restart_motor()
+        stirrer_ctl.restart_motor()
         while not task_queue.empty():
             task_queue.cycle()
             print('Starting the motor...')
@@ -162,6 +162,7 @@ def calibrate_stepper(rotation_dir, rotation_deg=180, pwm=1000):
     assert rotation_deg >= 0
     stepper = hw.stepper_arabinose_to_lagoon
     stepper._direction_mapping = stepper.calculate_direction_mapping(rotation_dir)
+    stepper.set_direction(TMC2208Stepper.DIRECTION_FORWARD)
     num_revolutions = abs(rotation_deg) / 360 
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)
     num_steps = int(hardware_config.STEPS_PER_REVOLUTION_BULLDOG * num_revolutions)

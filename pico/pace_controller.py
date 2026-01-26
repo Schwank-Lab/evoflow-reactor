@@ -349,7 +349,7 @@ class ODController:
             self._num_od_outliers += 1
             if self._num_od_outliers >= ODController.NUM_OD_OUTLIERS_FOR_RESTART:
                 self._logger.info(self._prefix+'ODController: too many outliers, restarting the motors')
-                self._stirrer_ctrl.__bg__restart_motor()
+                self._stirrer_ctrl.restart_motor()
                 self._num_od_outliers = 0
 
         self._logger.debug(f'{self._prefix}ODController: measured OD = {od:.2f}, filtered OD = {self._current_od:.2f}')
