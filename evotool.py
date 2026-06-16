@@ -25,6 +25,9 @@ DIR_TMP = Path('tmp')
 DIR_TMP.mkdir(exist_ok=True)
 CFG_EVOTOOL = Path('.evotool.json')
 
+# Sentinel reactor_id for a reactor that has been set up but not yet registered in the database.
+REACTOR_ID_UNREGISTERED = -1
+
 CALIBRATION_INC_LEFT_OD_MEASURED = 'inc_left_od_measured.csv'
 CALIBRATION_INC_LEFT_OD_EXPECTED = 'inc_left_od_expected.txt'
 CALIBRATION_INC_RIGHT_OD_MEASURED = 'inc_right_od_measured.csv'
@@ -589,18 +592,24 @@ def load_evotool_config():
             return {}
 
 
-def check_reactor_name_exists_in_db(reactor_name):
+def get_reactor_id_by_name(reactor_name):
+    """Returns the reactor_id of the reactor with the given name, or None if it does not exist.
+
+    Raises if more than one reactor shares the name (ambiguous, resolve manually).
+    """
     with Session(idec_engine()) as session:
-        db_reactor_name = session.execute(select(Reactor.name)
-                                          .where(Reactor.name.ilike(reactor_name))).fetchall()
-        session.commit()
-        return len(db_reactor_name) > 0
+        rows = session.execute(select(Reactor.reactor_id)
+                               .where(Reactor.name.ilike(reactor_name))).fetchall()
+    if len(rows) == 0:
+        return None
+    if len(rows) > 1:
+        raise RuntimeError(
+            f"Multiple reactors named '{reactor_name}' in the database "
+            f"(ids: {[row[0] for row in rows]}). Resolve manually.")
+    return rows[0][0]
 
 
 def create_reactor_db_entry(reactor_name):
-    if check_reactor_name_exists_in_db(reactor_name):
-        raise RuntimeError("This name already exists in db! Change it and try again")
-
     reactor = Reactor(name=reactor_name, network_id='0.0.0.0', reactor_config=[], experiment=[])
     with Session(idec_engine()) as session:
         session.add(reactor)
@@ -615,18 +624,20 @@ def generate_network_config(reactor_id):
     return network_config
 
 
-def setup_new_reactor(reactor_name, reactor_id, port):
-    if reactor_id is None:
-        new_reactor_id = create_reactor_db_entry(reactor_name)
-        print(f'Reactor create with id {new_reactor_id}')
-    else:
-        new_reactor_id = reactor_id
-        print(f'Using existing reactor with id {new_reactor_id}')
+def setup_new_reactor(reactor_name, port):
+    """Bootstraps a reactor on the attached pico, fully offline (no database).
 
-    network_config = generate_network_config(reactor_id=new_reactor_id)
+    The reactor is created in an unregistered state (reactor_id = REACTOR_ID_UNREGISTERED).
+    Its name is stored on the pico in configs/reactor_name.json and reused later by `register`.
+    """
+    network_config = generate_network_config(reactor_id=REACTOR_ID_UNREGISTERED)
     temp_path_network_config = DIR_TMP / 'network_config.json'
     with open(temp_path_network_config, 'w') as nw_file:
         json.dump(network_config, nw_file)
+
+    temp_path_reactor_name = DIR_TMP / 'reactor_name.json'
+    with open(temp_path_reactor_name, 'w') as name_file:
+        json.dump({'name': reactor_name}, name_file)
 
     rmdir_ampy('/', port)
     mkdir_ampy('/configs', port)
@@ -634,11 +645,76 @@ def setup_new_reactor(reactor_name, reactor_id, port):
     mkdir_ampy('/state', port)
     mkdir_ampy('/tmp', port)
     put_ampy(temp_path_network_config, '/configs/network_config.json', port)
+    put_ampy(temp_path_reactor_name, '/configs/reactor_name.json', port)
     put_ampy('pico/configs/default-reactor_config.json', '/configs/reactor_config.json', port)
     put_ampy('pico/configs/default-experiment_config.json', '/configs/experiment_config.json', port)
     put_ampy('pico/configs/default-reactor_state.json', '/state/reactor_state.json', port)
     put_ampy('pico-libs', '/libs', port)
+    print(f"Reactor '{reactor_name}' initialized in unregistered state (reactor_id={REACTOR_ID_UNREGISTERED}).")
+    print("Run `python evotool.py register` to add it to the database.")
 
+
+def confirm(prompt):
+    """Asks the user a yes/no question on the console. Returns True only on an explicit yes."""
+    return input(f'{prompt} [y/N] ').strip().lower() in {'y', 'yes'}
+
+
+def register_reactor(port):
+    """Registers the attached reactor in the database, reusing the name stored on the pico.
+
+    Reads the reactor name from configs/reactor_name.json, then links to an existing database
+    reactor of the same name or creates a new one (confirming either way). The resulting
+    reactor_id is written back into configs/network_config.json without disturbing any other
+    on-pico state (e.g. calibration).
+    """
+    temp_path_reactor_name = DIR_TMP / 'reactor_name.json'
+    if temp_path_reactor_name.exists():
+        temp_path_reactor_name.unlink()
+    get_ampy('/configs/reactor_name.json', temp_path_reactor_name, port)
+    if not temp_path_reactor_name.exists():
+        print('Could not read configs/reactor_name.json from the reactor. Run `init <REACTOR_NAME>` first.')
+        exit(1)
+    with open(temp_path_reactor_name) as name_file:
+        reactor_name = json.load(name_file).get('name')
+    if not reactor_name:
+        print('No reactor name stored on the reactor. Run `init <REACTOR_NAME>` first.')
+        exit(1)
+
+    temp_path_network_config = DIR_TMP / 'network_config.json'
+    if temp_path_network_config.exists():
+        temp_path_network_config.unlink()
+    get_ampy('/configs/network_config.json', temp_path_network_config, port)
+    if not temp_path_network_config.exists():
+        print('Could not read configs/network_config.json from the reactor. Run `init <REACTOR_NAME>` first.')
+        exit(1)
+    with open(temp_path_network_config) as nw_file:
+        network_config = json.load(nw_file)
+
+    current_id = network_config.get('reactor_id', REACTOR_ID_UNREGISTERED)
+    if current_id != REACTOR_ID_UNREGISTERED:
+        if not confirm(f"Reactor '{reactor_name}' is already registered with id {current_id}. Re-register?"):
+            print('Aborted.')
+            return
+
+    existing_id = get_reactor_id_by_name(reactor_name)
+    if existing_id is not None:
+        if not confirm(f"Reactor '{reactor_name}' already exists in the database with id {existing_id}. "
+                       "Link this reactor to it?"):
+            print('Aborted.')
+            return
+        new_reactor_id = existing_id
+    else:
+        if not confirm(f"No reactor named '{reactor_name}' found in the database. Create a new one?"):
+            print('Aborted.')
+            return
+        new_reactor_id = create_reactor_db_entry(reactor_name)
+        print(f"Created new reactor '{reactor_name}' with id {new_reactor_id}.")
+
+    network_config['reactor_id'] = new_reactor_id
+    with open(temp_path_network_config, 'w') as nw_file:
+        json.dump(network_config, nw_file)
+    put_ampy(temp_path_network_config, '/configs/network_config.json', port)
+    print(f"Reactor '{reactor_name}' registered with id {new_reactor_id}.")
 
 
 def deploy(scripts: list[str], port: str, dev_mode: bool):
@@ -688,9 +764,10 @@ if __name__ == '__main__':
     install_parser.add_argument('--micropython', '-p', type=str, default='micropython/RPI_PICO_W-20240602-v1.23.0.uf2', help='Path to the micropython file.')
     install_parser.add_argument('--pico', '-d', type=str, default=None, help='Path to the pico device.')
 
-    init_parser = command_parsers.add_parser('init', help='Initialize a new reactor')
+    init_parser = command_parsers.add_parser('init', help='Initialize a new reactor on the attached pico (offline, no database)')
     init_parser.add_argument('reactor_name', type=str, help='The name of the reactor to be created')
-    init_parser.add_argument('--reactor_id', type=int, help='The ID of an existing reactor to use', default=None)
+
+    command_parsers.add_parser('register', help='Register the attached reactor in the database (link existing or create new)')
 
     deploy_parser = command_parsers.add_parser('deploy', help='Deploy reactor software')
     deploy_parser.add_argument('--dev', action='store_true', help='If specified, main.py will be stored on pico as dev_main.py, to prevent auto-run')
@@ -827,7 +904,9 @@ if __name__ == '__main__':
         list_ampy('/', port)
         print(f'Reactor responsive at port {port}')
     elif args.command == 'init':
-        setup_new_reactor(args.reactor_name, args.reactor_id, port)
+        setup_new_reactor(args.reactor_name, port)
+    elif args.command == 'register':
+        register_reactor(port)
     elif args.command == 'deploy':
         deploy(args.scripts, port,  args.dev)
     elif args.command == 'logs':

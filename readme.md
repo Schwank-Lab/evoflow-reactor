@@ -14,11 +14,11 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 
 ### Reactor setup
  1. Install micropython on RPI Pico following instructions. Attach RPI Pico via USB, it should mount as a folder. Drag micropython script from `micropython/RPI_PICO_W-20240602-v1.23.0.uf2` to that folder. More info can be found [here](https://micropython.org/download/RPI_PICO/)
- 2. Run `poetry run python evotool.py --reactor_id XX REACTOR_NAME`.
-      XX - reactor id, when in doubt remove the `--reactor_id XX` part of the command and a new reactor will  be registered in the database
-      REACTOR_NAME - reactor name, should be written on the reactor itself, e.g. Alpha
- 3. Verify that reactor is registered in the [dashboard](http://10.66.4.7:3000), it should appear in the reactor dropdown.
- 4. Run `poetry run python evotool.py deploy all`
+ 2. Run `poetry run python evotool.py init REACTOR_NAME`.
+      REACTOR_NAME - reactor name, should be written on the reactor itself, e.g. Alpha. It is stored on the reactor (in `configs/reactor_name.json`) and reused later when you register.
+
+    `init` runs **offline** and does not need a database connection. The reactor starts in an *unregistered* state (`reactor_id = -1`); you add it to the database later with `register` (see [Register the reactor](#register-the-reactor)). You can `deploy`, diagnose, and calibrate it before registering.
+ 3. Run `poetry run python evotool.py deploy all`
 
 ### Reactor diagnostics
 
@@ -94,6 +94,21 @@ Run `poetry run python evotool.py calibrate compute_config`.
 
 If you calibrated bacterial stepper motor, provide the pumped volume that you measured by specifying `--bact_stepper_volume <volume_ml>`
 If you calibrated temperature, provide `--inc_left_measured_temps <t1> <t2> <t3>` for the temperatures you read from `T_raw(inc_left)` and `--inc_left_target_temps <t1> <t2> <t3>` for the temperatures you measured using an external therometer. Do the same for `--inc_right_measured_temps`, `--inc_right_target_temps`, `--lagoon_measured_temps`, and `--lagoon_target_temps`.
+
+
+### Register the reactor
+
+Once the reactor is set up (and, optionally, diagnosed and calibrated), register it in the database. Unlike `init`, this step needs a database connection (and the reactor attached over USB).
+
+Run `poetry run python evotool.py register`.
+
+`register` reads the reactor name stored on the pico (you don't pass it again) and looks it up in the database:
+ - if a reactor with that name already exists, it offers to **link** this hardware to it;
+ - if not, it offers to **create** a new reactor.
+
+You are asked to confirm in both cases. The resulting `reactor_id` is written back onto the reactor without touching its calibration or other on-pico state.
+
+After registering, verify that the reactor appears in the [dashboard](http://10.66.4.7:3000) reactor dropdown.
 
 
 ## Experiment Control
