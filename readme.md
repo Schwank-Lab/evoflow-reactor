@@ -15,9 +15,7 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 ### Reactor setup
  1. Install micropython on RPI Pico following instructions. Attach RPI Pico via USB, it should mount as a folder. Drag micropython script from `micropython/RPI_PICO_W-20240602-v1.23.0.uf2` to that folder. More info can be found [here](https://micropython.org/download/RPI_PICO/)
  2. Run `poetry run python evotool.py init REACTOR_NAME`.
-      REACTOR_NAME - reactor name, should be written on the reactor itself, e.g. Alpha. It is stored on the reactor (in `configs/reactor_name.json`) and reused later when you register.
-
-    `init` runs **offline** and does not need a database connection. The reactor starts in an *unregistered* state (`reactor_id = -1`); you add it to the database later with `register` (see [Register the reactor](#register-the-reactor)). You can `deploy`, diagnose, and calibrate it before registering.
+      REACTOR_NAME - reactor name, should be written on the reactor itself, e.g. Alpha
  3. Run `poetry run python evotool.py deploy all`
 
 ### Reactor diagnostics
@@ -98,7 +96,7 @@ If you calibrated temperature, provide `--inc_left_measured_temps <t1> <t2> <t3>
 
 ### Register the reactor
 
-Once the reactor is set up (and, optionally, diagnosed and calibrated), register it in the database. Unlike `init`, this step needs a database connection (and the reactor attached over USB).
+Once the reactor is set up and calibrated, register it in the database.
 
 Run `poetry run python evotool.py register`.
 

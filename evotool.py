@@ -625,10 +625,10 @@ def generate_network_config(reactor_id):
 
 
 def setup_new_reactor(reactor_name, port):
-    """Bootstraps a reactor on the attached pico, fully offline (no database).
+    """Bootstraps a reactor on the attached pico.
 
-    The reactor is created in an unregistered state (reactor_id = REACTOR_ID_UNREGISTERED).
-    Its name is stored on the pico in configs/reactor_name.json and reused later by `register`.
+    The reactor's name is stored on the pico (configs/reactor_name.json) and reused later by
+    `register`. Its reactor_id stays REACTOR_ID_UNREGISTERED until `register` assigns one.
     """
     network_config = generate_network_config(reactor_id=REACTOR_ID_UNREGISTERED)
     temp_path_network_config = DIR_TMP / 'network_config.json'
@@ -650,8 +650,7 @@ def setup_new_reactor(reactor_name, port):
     put_ampy('pico/configs/default-experiment_config.json', '/configs/experiment_config.json', port)
     put_ampy('pico/configs/default-reactor_state.json', '/state/reactor_state.json', port)
     put_ampy('pico-libs', '/libs', port)
-    print(f"Reactor '{reactor_name}' initialized in unregistered state (reactor_id={REACTOR_ID_UNREGISTERED}).")
-    print("Run `python evotool.py register` to add it to the database.")
+    print(f"Reactor '{reactor_name}' initialized.")
 
 
 def confirm(prompt):
@@ -764,7 +763,7 @@ if __name__ == '__main__':
     install_parser.add_argument('--micropython', '-p', type=str, default='micropython/RPI_PICO_W-20240602-v1.23.0.uf2', help='Path to the micropython file.')
     install_parser.add_argument('--pico', '-d', type=str, default=None, help='Path to the pico device.')
 
-    init_parser = command_parsers.add_parser('init', help='Initialize a new reactor on the attached pico (offline, no database)')
+    init_parser = command_parsers.add_parser('init', help='Initialize a new reactor')
     init_parser.add_argument('reactor_name', type=str, help='The name of the reactor to be created')
 
     command_parsers.add_parser('register', help='Register the attached reactor in the database (link existing or create new)')
