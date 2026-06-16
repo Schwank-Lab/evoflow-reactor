@@ -1,11 +1,11 @@
-import argparse 
+import argparse
 import subprocess
 from pathlib import Path
-import json 
+import json
 import glob
 from sys import exit
-import pandas as pd 
-import numpy as np  
+import pandas as pd
+import numpy as np
 from sklearn.linear_model import LinearRegression
 from datetime import datetime
 import serial.tools.list_ports
@@ -13,8 +13,8 @@ import shutil
 from evoflow_db.idec import Reactor, Experiment, ExperimentConfig
 from evoflow_db import idec_engine
 from sqlalchemy.orm import Session
-from sqlalchemy import select, update, insert 
-import time 
+from sqlalchemy import select, update, insert
+import time
 
 
 
@@ -22,7 +22,7 @@ from diagnostics import diagnostics_od
 
 DIR_DIAGNOSTICS = Path('diagnostics')
 DIR_TMP = Path('tmp')
-DIR_TMP.mkdir(exist_ok=True)    
+DIR_TMP.mkdir(exist_ok=True)
 CFG_EVOTOOL = Path('.evotool.json')
 
 CALIBRATION_INC_LEFT_OD_MEASURED = 'inc_left_od_measured.csv'
@@ -45,11 +45,11 @@ def find_pico_port():
     return None
 
 def find_pico_mount():
-    """ Automatically finds location in the file system where pico is mounted. 
-    
-    Returns:  
-        String path to the mounted folder. 
-    Throws: 
+    """ Automatically finds location in the file system where pico is mounted.
+
+    Returns:
+        String path to the mounted folder.
+    Throws:
         ValueError: If pico is not found.
     """
     mount_folder = Path('/Volumes')
@@ -64,7 +64,7 @@ def find_pico_mount():
     if len(hits) > 1:
         raise ValueError('Found multiple Pico mounts: ', ' '.join(hits))
     return hits[0]
-        
+
 
 ##############################
 #  Calibration commands
@@ -72,7 +72,7 @@ def find_pico_mount():
 
 
 
-def run_inc_left_stirrer_calibration(speed_frac, port): 
+def run_inc_left_stirrer_calibration(speed_frac, port):
     script_content = f"""from calibration import stop_all, calibrate_inc_left_stirrer
 
 stop_all()
@@ -106,7 +106,7 @@ calibrate_lagoon_stirrer(top_speed_frac={speed_frac})
     run_script(script, port)
 
 
-def run_inc_left_od_calibration(num_probes, port): 
+def run_inc_left_od_calibration(num_probes, port):
     script_content = f"""from calibration import stop_all, calibrate_inc_left_od
 
 stop_all()
@@ -116,7 +116,7 @@ calibrate_inc_left_od(num_probes={num_probes})"""
         script_file.write(script_content)
     run_script(script, port)
 
-def run_inc_right_od_calibration(num_probes, port): 
+def run_inc_right_od_calibration(num_probes, port):
     script_content = f"""from calibration import stop_all, calibrate_inc_right_od
 
 stop_all()
@@ -137,7 +137,7 @@ calibrate_temp({target_temp})
         script_file.write(script_content)
     run_script(script, port)
 
-def run_bact_stepper_calibration(num_steps, pwm, port): 
+def run_bact_stepper_calibration(num_steps, pwm, port):
     script_content = f"""from calibration import stop_all, calibrate_pump_incubator_to_lagoon
 
 stop_all()
@@ -169,11 +169,11 @@ def linear_fit_1d(df, x, y):
     return slope, intercept, y_pred
 
 def compute_temp_calibration(measured_temps, target_temps):
-    if measured_temps is not None or target_temps is not None: 
+    if measured_temps is not None or target_temps is not None:
         if measured_temps is None:
             print('Please provide measured temperatures.')
             exit(1)
-        if target_temps is None: 
+        if target_temps is None:
             print('Please provide target temperatures.')
             exit(1)
         if len(target_temps) != len(measured_temps):
@@ -185,14 +185,14 @@ def compute_temp_calibration(measured_temps, target_temps):
         print(f'Inferred: T = {inc_temp_slope:.5f} * RAW + {inc_temp_intercept:.2f}')
         print(vals)
         return inc_temp_slope, inc_temp_intercept
-    else: 
+    else:
         print('Temperature not provided, re-using values from the old config.')
         return None, None
-    
+
 def compute_od_calibration(path_od_measured: Path, path_od_expected: Path):
-    if path_od_measured.exists() and path_od_expected.exists(): 
+    if path_od_measured.exists() and path_od_expected.exists():
         od_measured = pd.read_csv(path_od_measured, header=None).mean(axis=1)
-        with open(path_od_expected, 'r') as f: 
+        with open(path_od_expected, 'r') as f:
             od_expected = list(map(float, f.readlines()))
         vals = pd.DataFrame({'measured': od_measured, 'expected': od_expected})
         od_slope, od_intercept, pred = linear_fit_1d(vals, 'measured', 'expected')
@@ -205,18 +205,18 @@ def compute_od_calibration(path_od_measured: Path, path_od_expected: Path):
 
 def compute_new_config(calibration_folder, args, port):
     """ Computes new reactor config based on all calibrated values."""
-    with open(calibration_folder / 'old_reactor_config.json') as f: 
+    with open(calibration_folder / 'old_reactor_config.json') as f:
         cfg = json.load(f)
 
     # re-use old calibration values.
     inc_left_temp_slope, inc_left_temp_intercept = cfg['inc_left']['temp']['slope'], cfg['inc_right']['temp']['intercept']
     inc_left_od_slope, inc_left_od_intercept = cfg['inc_left']['od']['slope'], cfg['inc_right']['od']['intercept']
     inc_left_stirrer_top_speed_frac = cfg['inc_left']['stirrer_top_speed_frac']
-    
+
     inc_right_temp_slope, inc_right_temp_intercept = cfg['inc_right']['temp']['slope'], cfg['inc_right']['temp']['intercept']
     inc_right_od_slope, inc_right_od_intercept = cfg['inc_right']['od']['slope'], cfg['inc_right']['od']['intercept']
     inc_right_stirrer_top_speed_frac = cfg['inc_right']['stirrer_top_speed_frac']
-    
+
     lagoon_temp_slope, lagoon_temp_intercept = cfg['lagoon_temp']['slope'], cfg['lagoon_temp']['intercept']
     bact_stepper_ml_per_step = cfg['bact_stepper_ml_per_step']
     lagoon_stirrer_top_speed_frac = cfg['lagoon_stirrer_top_speed_frac']
@@ -230,13 +230,13 @@ def compute_new_config(calibration_folder, args, port):
     print('\n\n\nRight Incubator temperature sensor')
     new_slope, new_intercept = compute_temp_calibration(args.inc_right_measured_temps, args.inc_right_target_temps)
     if new_slope is not None:
-        inc_right_temp_slope, inc_right_temp_intercept = new_slope, new_intercept 
+        inc_right_temp_slope, inc_right_temp_intercept = new_slope, new_intercept
 
     print('\n\n\nLagoon temperature sensor')
     new_slope, new_intercept = compute_temp_calibration(args.lagoon_measured_temps, args.lagoon_target_temps)
     if new_slope is not None:
         lagoon_temp_slope, lagoon_temp_intercept = new_slope, new_intercept
-    
+
     print('\n\n\nLeft incubator OD calibration')
     new_slope, new_intercept = compute_od_calibration(calibration_folder / CALIBRATION_INC_LEFT_OD_MEASURED, calibration_folder / CALIBRATION_INC_LEFT_OD_EXPECTED)
     if new_slope is not None:
@@ -253,8 +253,8 @@ def compute_new_config(calibration_folder, args, port):
 
     print('\n\n\nLeft incubator stirrer calibration')
     inc_left_stirrer_top_speed = calibration_folder / CALIBRATION_INC_LEFT_STIRRER_SPEED
-    if inc_left_stirrer_top_speed.exists(): 
-        with open(inc_left_stirrer_top_speed, 'r') as f: 
+    if inc_left_stirrer_top_speed.exists():
+        with open(inc_left_stirrer_top_speed, 'r') as f:
             inc_left_stirrer_top_speed_frac = float(f.read())
         print('Set new incubator stirrer top speed to:', inc_left_stirrer_top_speed_frac)
     else:
@@ -263,24 +263,24 @@ def compute_new_config(calibration_folder, args, port):
     print('\n\n\nRight incubator stirrer calibration')
     inc_right_stirrer_top_speed = calibration_folder / CALIBRATION_INC_RIGHT_STIRRER_SPEED
     if inc_right_stirrer_top_speed.exists():
-        with open(inc_right_stirrer_top_speed, 'r') as f: 
+        with open(inc_right_stirrer_top_speed, 'r') as f:
             inc_right_stirrer_top_speed_frac = float(f.read())
         print('Set new incubator stirrer top speed to:', inc_right_stirrer_top_speed_frac)
     else:
         print('Incubator stirrer calibration not provided. Re-using old values.')
-    
+
     print('\n\n\nLagoon stirrer calibration')
     lagoon_stirrer_top_speed = calibration_folder / CALIBRATION_LAGOON_STIRRER_SPEED
     if lagoon_stirrer_top_speed.exists():
-        with open(lagoon_stirrer_top_speed, 'r') as f: 
+        with open(lagoon_stirrer_top_speed, 'r') as f:
             lagoon_stirrer_top_speed_frac = float(f.read())
         print('Set new lagoon stirrer top speed to:', lagoon_stirrer_top_speed_frac)
-    else:  
+    else:
         print('Lagoon stirrer calibration not provided. Re-using old values.')
-    
+
     print('\n\n\nBacteria stepper calibration')
     if args.bact_stepper_volume is not None:
-        with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'r') as f: 
+        with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'r') as f:
             bact_stepper_num_steps = float(f.read())
         bact_stepper_ml_per_step = args.bact_stepper_volume / bact_stepper_num_steps
         print(f'Inferred bacteria stepper volume per step = {bact_stepper_ml_per_step:.6f}mL')
@@ -289,17 +289,17 @@ def compute_new_config(calibration_folder, args, port):
         pwm_prediction['required_pwm'] = pwm_prediction['required_pwm'].apply(lambda x: int(np.ceil(x))).astype(int)
         print('PWM required for different flow rates:')
         print(pwm_prediction)
-        if pwm_prediction.loc[2, 'required_pwm'] > 10000: 
+        if pwm_prediction.loc[2, 'required_pwm'] > 10000:
             print('Warning: PWM required to achieve 21mL/h is too high. Consider adjusting the tubing.')
         if pwm_prediction.loc[0, 'required_pwm'] < 100:
             print('Warning: PWM required to achieve 7mL/h is too low. Consider adjusting the tubing.')
     else:
         print('Bacteria stepper calibration not provided. Re-using old values. Make sure to set --bact_stepper_volume flag.')
-    
+
     print('\n\n\nInduction stepper calibration')
     induction_stepper_dir_file = calibration_folder / CALIBRATION_INDUCTION_STEPPER_DIRECTION
     if induction_stepper_dir_file.exists():
-        with open(induction_stepper_dir_file, 'r') as f: 
+        with open(induction_stepper_dir_file, 'r') as f:
             induction_stepper_direction = int(f.read())
         print('Set new induction stepper direction to:', induction_stepper_direction)
     else:
@@ -325,7 +325,7 @@ def compute_new_config(calibration_folder, args, port):
     print('\n\n\nComputed new reactor config:')
     print(json.dumps(new_cfg, indent=2))
 
-    with open(calibration_folder / 'new_reactor_config.json', 'w') as f: 
+    with open(calibration_folder / 'new_reactor_config.json', 'w') as f:
         json.dump(new_cfg, f)
 
     put_ampy(calibration_folder / 'new_reactor_config.json', 'configs/reactor_config.json', port)
@@ -337,12 +337,12 @@ def compute_new_config(calibration_folder, args, port):
 ##############################
 
 
-def run_free_space_diagnostic(port): 
+def run_free_space_diagnostic(port):
     script_content = """
-import gc 
-import os 
+import gc
+import os
 
-def bytes_to_kb(n_bytes): 
+def bytes_to_kb(n_bytes):
     return n_bytes >> 10
 
 stats = os.statvfs('/')
@@ -357,15 +357,15 @@ print('Used space: ', bytes_to_kb(used_space))
         script_file.write(script_content)
     run_script(script, port)
 
-def run_inc_left_od_diagnostic(port): 
+def run_inc_left_od_diagnostic(port):
     diagnostics_od.generate_script('inc_left', temp_dir=DIR_TMP, script_name='diagnostics_left_od.py')
     run_script(DIR_TMP / 'diagnostics_left_od.py', port)
 
-def run_inc_right_od_diagnostic(port): 
+def run_inc_right_od_diagnostic(port):
     diagnostics_od.generate_script('inc_right', temp_dir=DIR_TMP, script_name='diagnostics_right_od.py')
     run_script(DIR_TMP / 'diagnostics_right_od.py', port)
 
-def run_stepper_diagnostic(movement_type, movement_amount, port): 
+def run_stepper_diagnostic(movement_type, movement_amount, port):
     stepper_fucntion_map = {
         'angle': 'test_stepper_rotation',
         'displacement': 'test_stepper_displacement',
@@ -373,7 +373,7 @@ def run_stepper_diagnostic(movement_type, movement_amount, port):
     }
     script_content = f"""from diagnostics import stop_all, test_stepper_rotation, test_stepper_displacement, test_stepper_vol
 
-stop_all() 
+stop_all()
 {stepper_fucntion_map[movement_type]}({movement_amount})
 """
     script = DIR_TMP / 'diagnostics_stepper.py'
@@ -391,7 +391,7 @@ def update_experiment_state(new_state, port):
     with open(DIR_TMP / 'experiment_config.json', 'r') as f:
         experiment_config = json.load(f)
         experiment_id = experiment_config['experiment_id']
-    
+
     print(f'Setting experiment(experiment_id={experiment_id}) state to {new_state}')
 
     # update experiment state in db
@@ -403,7 +403,7 @@ def update_experiment_state(new_state, port):
         )
         session.execute(update_stmt)
         session.commit()
-    
+
     # store new experiment state on pico
     state = {
         "status": 'running' if new_state == 'start' else 'idle',
@@ -424,7 +424,7 @@ def _push_new_config(new_config_json, port):
         )
         session.execute(update_stmt)
         session.commit()
-    
+
     # store new experiment config on pico
     with open(DIR_TMP / 'experiment_config.json', 'w') as f:
         json.dump(new_config_json, f)
@@ -441,7 +441,7 @@ def update_experiment_config(new_config, port):
         experiment_config = json.load(f)
         experiment_id = experiment_config['experiment_id']
         new_config_json['experiment_id'] = experiment_id
-    
+
     print(f'Updating experiment(experiment_id={experiment_id}) config')
     _push_new_config(new_config_json, port)
 
@@ -456,8 +456,8 @@ def update_flow_rate(flow_rate, port):
         print(f'Updating lagoon flow rate from {old_flow_rate} to {flow_rate}')
         experiment_config['lagoon']['flow_rate'] = flow_rate
         _push_new_config(experiment_config, port)
-    
-    
+
+
 
 def new_experiment(experiment_config, experiment_name, port):
     # get reactor id from pico
@@ -465,14 +465,14 @@ def new_experiment(experiment_config, experiment_name, port):
     with open(DIR_TMP / 'network_config.json', 'r') as f:
         network_config = json.load(f)
         reactor_id = network_config['reactor_id']
-    
+
     print(f'Creating new experiment for reactor_id={reactor_id}')
 
     with open(experiment_config, 'r') as f:
         config_json = json.load(f)
 
     current_timestamp = int(time.time())
-    
+
     # Store data to db.
     with Session(idec_engine()) as session:
         stmt = insert(Experiment).values(
@@ -485,14 +485,14 @@ def new_experiment(experiment_config, experiment_name, port):
         result = session.execute(stmt)
         exp_id = result.inserted_primary_key[0]  # Access the newly inserted experiment_id
         print('Inserted experiment id: ', exp_id)
-        
+
         stmt_config = insert(ExperimentConfig).values(
             experiment_id=exp_id,
             exp_config_json=json.dumps(config_json),
             timestamp=current_timestamp,
             inserted_at=datetime.now(),
         )
-        
+
         session.execute(stmt_config)
         session.commit()
 
@@ -513,22 +513,22 @@ def download_experiment_config(port, local_path):
 # Helper commands
 ##############################
 
-def run_script(script: Path, port): 
+def run_script(script: Path, port):
     return run_ampy(f'run {script}', port)
 
-def run_ampy(command, port): 
+def run_ampy(command, port):
     ampy_command = f'ampy -p {port} {command}'
     print(f'Running command: {command}')
     res = subprocess.run(ampy_command, shell=True)
-    if res.returncode != 0: 
+    if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
 
 
-def get_ampy(pico_path, local_path, port): 
+def get_ampy(pico_path, local_path, port):
     ampy_command = f'ampy -p {port} get {pico_path} {local_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
-    if res.returncode != 0: 
+    if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
 
 
@@ -536,11 +536,11 @@ def put_ampy(local_path, pico_path, port):
     ampy_command = f'ampy -p {port} put {local_path} {pico_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
-    if res.returncode != 0: 
+    if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
 
 
-def rm_ampy(remote_path, port, check_exists=True): 
+def rm_ampy(remote_path, port, check_exists=True):
     if check_exists:
         parent_folder  = Path(remote_path).parent
         if not remote_path in list_ampy(parent_folder, port):
@@ -549,7 +549,7 @@ def rm_ampy(remote_path, port, check_exists=True):
     ampy_command = f'ampy -p {port} rm {remote_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
-    if res.returncode != 0: 
+    if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
 
 
@@ -557,7 +557,7 @@ def rmdir_ampy(remote_path, port):
     ampy_command = f'ampy -p {port} rmdir {remote_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
-    if res.returncode != 0: 
+    if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
 
 
@@ -565,14 +565,14 @@ def mkdir_ampy(remote_path, port):
     ampy_command = f'ampy -p {port} mkdir {remote_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
-    if res.returncode != 0: 
+    if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
 
 def list_ampy(remote_path, port, print_results=False):
     ampy_command = f'ampy -p {port} ls {remote_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True, capture_output=True, text=True)
-    if res.returncode != 0: 
+    if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
     list_res = res.stdout.split('\n')
     if print_results:
@@ -581,9 +581,9 @@ def list_ampy(remote_path, port, print_results=False):
 
 def load_evotool_config():
     CFG_EVOTOOL.touch(exist_ok=True)
-    with open(CFG_EVOTOOL, 'r') as cfg_file: 
+    with open(CFG_EVOTOOL, 'r') as cfg_file:
         contents = cfg_file.read()
-        if contents != '': 
+        if contents != '':
             return json.loads(contents)
         else:
             return {}
@@ -602,32 +602,32 @@ def create_reactor_db_entry(reactor_name):
         raise RuntimeError("This name already exists in db! Change it and try again")
 
     reactor = Reactor(name=reactor_name, network_id='0.0.0.0', reactor_config=[], experiment=[])
-    with Session(idec_engine()) as session: 
+    with Session(idec_engine()) as session:
         session.add(reactor)
         session.commit()
         return reactor.reactor_id
-    
+
 
 def generate_network_config(reactor_id):
     with open('pico/configs/default-network_config.json', 'r') as f:
-        network_config = json.load(f) 
+        network_config = json.load(f)
         network_config['reactor_id'] = reactor_id
     return network_config
 
 
 def setup_new_reactor(reactor_name, reactor_id, port):
-    if reactor_id is None: 
+    if reactor_id is None:
         new_reactor_id = create_reactor_db_entry(reactor_name)
         print(f'Reactor create with id {new_reactor_id}')
-    else: 
+    else:
         new_reactor_id = reactor_id
         print(f'Using existing reactor with id {new_reactor_id}')
-    
-    network_config = generate_network_config(reactor_id=new_reactor_id) 
+
+    network_config = generate_network_config(reactor_id=new_reactor_id)
     temp_path_network_config = DIR_TMP / 'network_config.json'
     with open(temp_path_network_config, 'w') as nw_file:
         json.dump(network_config, nw_file)
-    
+
     rmdir_ampy('/', port)
     mkdir_ampy('/configs', port)
     mkdir_ampy('/logs', port)
@@ -639,16 +639,16 @@ def setup_new_reactor(reactor_name, reactor_id, port):
     put_ampy('pico/configs/default-reactor_state.json', '/state/reactor_state.json', port)
     put_ampy('pico-libs', '/libs', port)
 
-    
+
 
 def deploy(scripts: list[str], port: str, dev_mode: bool):
-    # copy all python scripts. 
+    # copy all python scripts.
     if scripts == ['all']:
         scripts = glob.glob('pico/*.py')
         print('Deploying all scripts:', scripts)
-    else: 
-        for script in scripts: 
-            if not Path(script).exists(): 
+    else:
+        for script in scripts:
+            if not Path(script).exists():
                 print(f'Script {script} does not exist.')
                 exit(1)
     has_main = any('main.py' in script for script in scripts)
@@ -656,14 +656,14 @@ def deploy(scripts: list[str], port: str, dev_mode: bool):
         rm_ampy('/main.py', port)
         pico_main = '/dev_main.py' if dev_mode else '/main.py'
         put_ampy('pico/main.py', pico_main, port)
-    
+
     non_main = [script for script in scripts if 'main.py' not in script]
-    for script in non_main: 
+    for script in non_main:
         put_ampy(script, Path('/') / Path(script).name, port)
 
 
 def download_logs(local_path: Path, port: str):
-    """ Downloads all logs from the pico."""  
+    """ Downloads all logs from the pico."""
     log_files = list_ampy('/logs', port)
     for log_file in log_files:
         get_ampy(log_file, local_path / Path(log_file).name, port)
@@ -672,9 +672,9 @@ def download_logs(local_path: Path, port: str):
 def clear_logs(port: str):
     """ Clears logs folder on pico."""
     log_files = list_ampy('/logs', port)
-    for log_file in log_files: 
-        rm_ampy(log_file, port)    
-        
+    for log_file in log_files:
+        rm_ampy(log_file, port)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Command line tool for working with EvoFlow reactors.')
@@ -745,34 +745,34 @@ if __name__ == '__main__':
     parser_calibrate_bact_stepper = calibrate_hardware_parsers.add_parser('bact_stepper', help='Calibrate step volume of the bacteria stepper motor.\nNote: we only use stepper of the left incubator.')
     parser_calibrate_bact_stepper.add_argument('--num_steps', type=int, default=10000, help='Number of steps to use during calibration')
     parser_calibrate_bact_stepper.add_argument('--pwm', type=int, default=1000, help='PWM frequency for the stepper motor')
-    
+
     parser_calibrate_induction_stepper = calibrate_hardware_parsers.add_parser('induction_stepper', help='Calibrate roation direction of the induction stepper motor. Either +1 or -1')
     parser_calibrate_induction_stepper.add_argument('rotation_direction', type=int, choices=[+1, -1], help='Rotation direction of the induction stepper motor, either +1 or -1')
 
     parser_calibrate_new_config = calibrate_hardware_parsers.add_parser('compute_config', help='Compute a new calibration config')
-    parser_calibrate_new_config.add_argument('--inc_left_measured_temps', type=float, nargs='+', default=None, 
+    parser_calibrate_new_config.add_argument('--inc_left_measured_temps', type=float, nargs='+', default=None,
                                              help='Measured temperatures for the left incubator')
-    parser_calibrate_new_config.add_argument('--inc_left_target_temps', type=float, nargs='+', default=None, 
+    parser_calibrate_new_config.add_argument('--inc_left_target_temps', type=float, nargs='+', default=None,
                                              help='Target temperatures for the left incubator')
-    parser_calibrate_new_config.add_argument('--inc_right_measured_temps', type=float, nargs='+', default=None, 
+    parser_calibrate_new_config.add_argument('--inc_right_measured_temps', type=float, nargs='+', default=None,
                                              help='Measured temperatures for the right incubator')
-    parser_calibrate_new_config.add_argument('--inc_right_target_temps', type=float, nargs='+', default=None, 
+    parser_calibrate_new_config.add_argument('--inc_right_target_temps', type=float, nargs='+', default=None,
                                              help='Target temperatures for the right incubator')
     parser_calibrate_new_config.add_argument('--lagoon_measured_temps', type=float, nargs='+', default=None, help
                                              ='Measured temperatures for the lagoon')
-    parser_calibrate_new_config.add_argument('--lagoon_target_temps', type=float, nargs='+', default=None, 
+    parser_calibrate_new_config.add_argument('--lagoon_target_temps', type=float, nargs='+', default=None,
                                              help='Target temperatures for the lagoon')
-    parser_calibrate_new_config.add_argument('--bact_stepper_volume', type=float, default=None, 
+    parser_calibrate_new_config.add_argument('--bact_stepper_volume', type=float, default=None,
                                              help='Volume of liquid dispensed by the bacteria stepper motor.')
-    
-    ## Commands to control pico exeriment. 
+
+    ## Commands to control pico exeriment.
     parser_experiment = command_parsers.add_parser('experiment', help='Control experiment')
     experiment_subparsers = parser_experiment.add_subparsers(dest='experiment_command')
-    
+
     experiment_subparsers.add_parser('start', help='Start the experiment')
     experiment_subparsers.add_parser('stop', help='Stop the experiment')
     experiment_subparsers.add_parser('pause', help='Pause the experiment')
-    
+
     parser_experiment_update = experiment_subparsers.add_parser('update', help='Update experiment config')
     parser_experiment_update.add_argument('config', type=str, help='Path to the new config file')
 
@@ -790,11 +790,11 @@ if __name__ == '__main__':
 
     ## Load config
     cfg = load_evotool_config()
-    if 'calibration_folder' in cfg.keys(): 
+    if 'calibration_folder' in cfg.keys():
         calibration_folder = Path(cfg['calibration_folder'])
     else:
         calibration_folder = None
-    
+
     ## Handle micropython install command
     if args.command == 'install':
         micro_path = Path(args.micropython)
@@ -802,7 +802,7 @@ if __name__ == '__main__':
             print(f'Micropython file {micro_path} not found.')
             exit(1)
         if args.pico is None:
-            try: 
+            try:
                 pico_path = find_pico_mount()
             except ValueError as e:
                 print('Error while looking for the pico path:')
@@ -815,33 +815,33 @@ if __name__ == '__main__':
 
     ## Find pico
     port = args.port
-    if port is None: 
+    if port is None:
         port = find_pico_port()
-        if port is None: 
+        if port is None:
             print('Could not find the pico attached. Re-plug or provide correct port via --port')
             exit(1)
         # TODO: try to communicate with pico.
-    if args.command == 'stop': 
+    if args.command == 'stop':
         run_script(DIR_DIAGNOSTICS / 'diagnostics_stop.py', port)
     elif args.command == 'ping':
         list_ampy('/', port)
         print(f'Reactor responsive at port {port}')
     elif args.command == 'init':
         setup_new_reactor(args.reactor_name, args.reactor_id, port)
-    elif args.command == 'deploy': 
+    elif args.command == 'deploy':
         deploy(args.scripts, port,  args.dev)
-    elif args.command == 'logs': 
+    elif args.command == 'logs':
         if args.logs_command == 'clear':
             clear_logs(port)
         elif args.logs_command == 'dump':
-            if args.local is None: 
+            if args.local is None:
                 local_path = Path('logs') / datetime.now().strftime('%Y-%m-%d')
-            else: 
+            else:
                 local_path = Path(args.local)
             local_path.mkdir(exist_ok=True, parents=True)
             print(f'Downloading pico logs to {local_path}')
             download_logs(local_path, port)
-        else: 
+        else:
             log_parser.print_help()
     elif args.command == 'diagnose':
         if args.part == 'free_space':
@@ -864,7 +864,7 @@ if __name__ == '__main__':
             parser_diagnose.print_help()
     elif args.command == 'calibrate':
         if args.part == 'new':
-            with open(CFG_EVOTOOL, 'w') as cfg_file: 
+            with open(CFG_EVOTOOL, 'w') as cfg_file:
                 Path(args.folder).mkdir(exist_ok=True, parents=True)
                 cfg['calibration_folder'] = args.folder
                 json.dump(cfg, cfg_file)
@@ -873,16 +873,16 @@ if __name__ == '__main__':
                 else:
                     get_ampy('configs/reactor_config.json', args.folder + '/old_reactor_config.json', port)
                 exit(0) # TODO: refactor
-        else: 
-            if calibration_folder is None: 
+        else:
+            if calibration_folder is None:
                 print('Please run `python evotool.py calibrate new <folder>` first')
                 exit(1)
             if not calibration_folder.exists():
                 print(f'Calibration folder {calibration_folder} does not exist. Please run `evotool calibrate new <folder>`')
                 exit(1)
-            else: 
+            else:
                 print('Using calibration folder:', calibration_folder)
-        if args.part == 'inc_left_stirrer': 
+        if args.part == 'inc_left_stirrer':
             run_inc_left_stirrer_calibration(args.speed_frac, port)
             with open(calibration_folder / CALIBRATION_INC_LEFT_STIRRER_SPEED, 'w') as speed_file:
                 speed_file.write(str(args.speed_frac))
@@ -894,7 +894,7 @@ if __name__ == '__main__':
             run_lagoon_stirrer_calibration(args.speed_frac, port)
             with open(calibration_folder / CALIBRATION_LAGOON_STIRRER_SPEED, 'w') as speed_file:
                 speed_file.write(str(args.speed_frac))
-        elif args.part == 'inc_left_od': 
+        elif args.part == 'inc_left_od':
             expected_ods = args.expected_ods
             run_inc_left_od_calibration(len(expected_ods), port)
             get_ampy('tmp/od_calibration.csv', calibration_folder / CALIBRATION_INC_LEFT_OD_MEASURED, port)
@@ -906,19 +906,19 @@ if __name__ == '__main__':
             get_ampy('tmp/od_calibration.csv', calibration_folder / CALIBRATION_INC_RIGHT_OD_MEASURED, port)
             with open(calibration_folder / CALIBRATION_INC_RIGHT_OD_EXPECTED, 'w') as ods_file:
                 ods_file.write('\n'.join(map(str, expected_ods)))
-        elif args.part == 'temp': 
+        elif args.part == 'temp':
             run_temp_calibration(args.target_temp, port)
-        elif args.part == 'bact_stepper': 
+        elif args.part == 'bact_stepper':
             run_bact_stepper_calibration(args.num_steps, args.pwm, port)
             with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'w') as steps_file:
                 steps_file.write(str(args.num_steps))
-        elif args.part == 'induction_stepper': 
+        elif args.part == 'induction_stepper':
             run_induction_stepper_calibration(args.rotation_direction, port)
             with open(calibration_folder / CALIBRATION_INDUCTION_STEPPER_DIRECTION, 'w') as speed_file:
                 speed_file.write(str(args.rotation_direction))
         elif args.part == 'compute_config':
             compute_new_config(calibration_folder, args, port)
-        else: 
+        else:
             parser_calibrate.print_help()
     elif args.command == 'experiment':
         if args.experiment_command in {'start', 'stop', 'pause'}:
@@ -950,5 +950,5 @@ if __name__ == '__main__':
             update_flow_rate(args.flow_rate, port)
         else:
             parser_experiment.print_help()
-    else: 
+    else:
         parser.print_help()
