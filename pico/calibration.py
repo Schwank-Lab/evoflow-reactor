@@ -132,54 +132,49 @@ def calibrate_temp(target_temp, temp_tol, drift_tol, settle_window_s):
         hw.heater_lagoon.off()
         print('Heaters off.')
 
-def calibrate_inc_left_od(num_probes=5):
+def calibrate_inc_left_od():
     q = pace_controller.TaskQueue(clk)
     stirrer = pace_controller.StirrerController(hw.inc_left.stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, logger=log)
-    _calibrate_od(num_probes, stirrer, hw.inc_left.led, hw.inc_left.od_sensor, q)
+    _calibrate_od(stirrer, hw.inc_left.led, hw.inc_left.od_sensor, q)
 
 
-def calibrate_inc_right_od(num_probes=5):
+def calibrate_inc_right_od():
     q = pace_controller.TaskQueue(clk)
     stirrer = pace_controller.StirrerController(hw.inc_right.stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, logger=log)
-    _calibrate_od(num_probes, stirrer, hw.inc_right.led, hw.inc_right.od_sensor, q)
+    _calibrate_od(stirrer, hw.inc_right.led, hw.inc_right.od_sensor, q)
 
 
-def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):
+def _calibrate_od(stirrer_ctl, led, sensor, task_queue):
+    """Measure the raw OD of the probe currently inserted and write it to tmp/od_calibration_probe.csv.
+
+    The host pairs this measurement with the known OD of the inserted probe and
+    accumulates one row per probe across calls.
+    """
     measure_od_interval_s = 5
-    num_measurements_per_probe = 5
-    measure_od_delay_s = 5
-    
-    
-    measurements = [[] for _ in range(num_probes)] 
-    for num_probe in range(num_probes):
-        # Give user time to switch out the probe.
-        print(f'Insert probe {num_probe+1} out of {num_probes}')
-        for t in range(measure_od_delay_s, 0, -1):
-            print(f'Measruing OD in {t}s')
-            time.sleep(1)
+    num_measurements = 5
 
-        # Start the stirrer
-        stirrer_ctl.restart_motor()
-        while not task_queue.empty():
-            task_queue.cycle()
-            print('Starting the motor...')
+    stirrer_ctl.restart_motor()
+    while not task_queue.empty():
+        task_queue.cycle()
 
-        # Measure OD
-        for num_measurement in range(num_measurements_per_probe):
-            led.on()
-            time.sleep(pace_controller.ODController.TIME_OD_DELAY / 1000)
-            raw = sensor.read_raw()
-            measurements[num_probe].append(raw)
-            led.off()
-            time.sleep(measure_od_interval_s)
-            print(f'Probe {num_probe+1}/{num_probes} Measurement {num_measurement+1}/{num_measurements_per_probe} RAW={raw:.2f}')
-        
-        stirrer_ctl._stirrer.off()
+    raws = []
+    for num_measurement in range(num_measurements):
+        led.on()
+        time.sleep(pace_controller.ODController.TIME_OD_DELAY / 1000)
+        raw = sensor.read_raw()
+        raws.append(raw)
+        led.off()
+        time.sleep(measure_od_interval_s)
+        print(f'Measurement {num_measurement+1}/{num_measurements} RAW={raw:.2f}')
 
-    with open('tmp/od_calibration.csv', 'w') as f: 
-        for probe_measurements in measurements:
-            f.write(','.join(map(str, probe_measurements)))
-            f.write('\n')
+    stirrer_ctl._stirrer.off()
+
+    mean, std = compute_stats(raws)
+    print(f'Inserted probe RAW over {num_measurements} readings: mean={mean:.2f} std={std:.2f}')
+
+    with open('tmp/od_calibration_probe.csv', 'w') as f:
+        f.write(','.join(map(str, raws)))
+        f.write('\n')
 
 def calibrate_pump_incubator_to_lagoon(num_steps=10000, pwm=1000): 
     time_s = num_steps / pwm

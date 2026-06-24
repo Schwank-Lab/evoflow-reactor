@@ -47,12 +47,11 @@ Follow the instructions below to calibrate individual hardware parts. Note that 
 
 #### OD Calibration
 
-To calibrate OD, we need to measure ODs of the probes with the known OD value. We have such probes, use some of them. Recommended is
+To calibrate OD, measure several reference probes with known OD values — **one probe per command**. Each run measures the probe currently inserted and records it; the readings accumulate across runs. Recommended ODs: 0.1, 0.4, 0.6, 0.8, 1.0.
 
-1. Run `poetry run python evotool.py calibrate inc_left_od <od1> <od2> <od3>` and follow instructions.
-2. Run `poetry run python evotool.py calibrate inc_right_od <od1> <od2> <od3>` and follow instructions.
-
-Recommended ODs to use are `poetry run python evotool.py calibrate inc_left_od 0.1 0.4 0.6 0.8 1.0`
+1. Insert the first reference probe into the left incubator and run `poetry run python evotool.py calibrate inc_left_od <od> --reset`, e.g. `poetry run python evotool.py calibrate inc_left_od 0.1 --reset`. The `--reset` starts a fresh set (use it only for the first probe).
+2. Insert each remaining probe in turn and run `poetry run python evotool.py calibrate inc_left_od <od>` (without `--reset`), e.g. `0.4`, then `0.6`, `0.8`, `1.0`. Each run appends one probe; it prints the running count and the mean RAW so you can sanity-check that higher OD reads a higher RAW.
+3. Repeat for the right incubator with `poetry run python evotool.py calibrate inc_right_od <od>` (start with `--reset`).
 
 
 #### Bacterial Stepper Calibration
