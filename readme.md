@@ -20,6 +20,11 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 
 ### Reactor diagnostics
 
+#### What you need
+
+- Glass tubes (culture probes) fitted with magnetic stirring bars — for the stirrer check.
+- A set of OD probes spanning a range of turbidity, at minimum a clear/blank probe and a turbid probe. The turbid probe should read a higher OD.
+
 > **FOR AGENT**
 > Every step here needs the user to physically set up hardware (insert probes/tubes) and/or watch the reactor. Before each command, tell the user what to prepare and what to look for, and wait for their confirmation. For OD (steps 4–5), run the command once with the clear probe and once with the turbid probe, prompting the user to swap between runs, then compare the two printed ODs yourself.
 
@@ -34,6 +39,14 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 6. Run `poetry python evotool.py diagnose stepper angle 180`. You should observe stepper shaft rotating 180 degrees.
 
 ### Reactor calibration
+
+#### What you need
+
+- An empty glass probe/tube with the lid removed — for the stirrer calibration.
+- A set of OD reference probes with known OD values (recommended: 0.1, 0.4, 0.6, 0.8, 1.0) — for the OD calibration.
+- Tubing for the bacterial stepper pump, ~100 ml of liquid (e.g. water) in a bottle, and an empty collection bottle — for the bacterial stepper calibration.
+- A scale/balance to weigh the empty bottle and the pumped liquid (to determine the pumped volume).
+- An external thermometer to read the actual temperature in the glass tubes — for the temperature calibration.
 
 Run `poetry run python evotool.py calibrate new <your_experiment_name>` (e.g. `python evotool calibrate new calibration_logs/20240405_bravo`) to start a new calibration session.
 
