@@ -129,11 +129,11 @@ calibrate_inc_right_od(num_probes={num_probes})"""
         script_file.write(script_content)
     run_script(script, port)
 
-def run_temp_calibration(target_temp, port):
+def run_temp_calibration(target_temp, port, duration=600, temp_tol=0.5, drift_tol=0.2, settle_window=30):
     script_content = f"""from calibration import stop_all, calibrate_temp
 
 stop_all()
-calibrate_temp({target_temp})
+calibrate_temp({target_temp}, max_duration_s={duration}, temp_tol={temp_tol}, drift_tol={drift_tol}, settle_window_s={settle_window})
 """
     script = DIR_TMP / 'calibrate_temp.py'
     with open(script, 'w') as script_file:
@@ -817,6 +817,10 @@ if __name__ == '__main__':
 
     parser_calibrate_temp = calibrate_hardware_parsers.add_parser('temp', help='Calibrate temperature sensors')
     parser_calibrate_temp.add_argument('target_temp', type=float, help='Target temperature for calibration')
+    parser_calibrate_temp.add_argument('--duration', type=float, default=600, help='Max seconds to run before stopping if not stabilized (cap). Default 600.')
+    parser_calibrate_temp.add_argument('--temp-tol', dest='temp_tol', type=float, default=0.5, help='Accuracy band (C): |mean(T)-target| must be within this to count as settled. Default 0.5.')
+    parser_calibrate_temp.add_argument('--drift-tol', dest='drift_tol', type=float, default=0.2, help='Flatness band (C): half-window mean drift must be within this to count as settled. Default 0.2.')
+    parser_calibrate_temp.add_argument('--settle-window', dest='settle_window', type=float, default=30, help='Window in seconds over which stabilization is evaluated. Default 30.')
 
     parser_calibrate_bact_stepper = calibrate_hardware_parsers.add_parser('bact_stepper', help='Calibrate step volume of the bacteria stepper motor.\nNote: we only use stepper of the left incubator.')
     parser_calibrate_bact_stepper.add_argument('--num_steps', type=int, default=10000, help='Number of steps to use during calibration')
@@ -985,7 +989,9 @@ if __name__ == '__main__':
             with open(calibration_folder / CALIBRATION_INC_RIGHT_OD_EXPECTED, 'w') as ods_file:
                 ods_file.write('\n'.join(map(str, expected_ods)))
         elif args.part == 'temp':
-            run_temp_calibration(args.target_temp, port)
+            run_temp_calibration(args.target_temp, port, duration=args.duration,
+                                 temp_tol=args.temp_tol, drift_tol=args.drift_tol,
+                                 settle_window=args.settle_window)
         elif args.part == 'bact_stepper':
             run_bact_stepper_calibration(args.num_steps, args.pwm, port)
             with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'w') as steps_file:
