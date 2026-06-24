@@ -165,24 +165,24 @@ def measure_od_inc_right():
     return compute_stats(raws), compute_stats(ods)
     
     
-def test_od(measure_od):
-    print('Testing OD measurement')
-    print('Put clear probe')
-    for i in range(3, 0, -1):
-        print(f'Measuring in {i}')
-        time.sleep(1)
-    
-    (clear_raw_mean, clear_raw_std), (clear_od_mean, clear_od_std) = measure_od()
-        
-    print('Put turbid probe')
-    for i in range(3, 0, -1):
-        print(f'Measuring in {i}')
-        time.sleep(1)
-        
-    (turbid_raw_mean, turbid_raw_std), (turbid_od_mean, turbid_od_std) = measure_od()
+def report_od(measure_od, name='OD'):
+    """Measure the probe currently in the incubator once and print a human-readable summary.
 
-    print(f'Clear\t od_mean={clear_od_mean:.2f}\t od_std={clear_od_std:.2f}\t raw_mean={clear_raw_mean:.2f}\t raw_std={clear_raw_std:.2f}')
-    print(f'Turbid\t od_mean={turbid_od_mean:.2f}\t od_std={turbid_od_std:.2f}\t raw_mean={turbid_raw_mean:.2f}\t raw_std={turbid_raw_std:.2f}')
+    Swapping probes (clear vs. turbid) and comparing the results is done by the
+    caller (a human rerunning the command, or an agent driving the user) -- this
+    only measures whatever is inserted right now.
+    """
+    print(f'Measuring OD of the probe currently inserted in {name}...')
+    (raw_mean, raw_std), (od_mean, od_std) = measure_od()
+
+    n = OD_MEASURE_DURATION_SEC // OD_MEASURE_INTERVAL_SEC
+    print()
+    if od_mean is None:
+        print('No valid readings - check that a probe is inserted and the sensor is connected.')
+        return
+    print(f'{name} OD - averaged over {n} readings:')
+    print(f'  OD  = {od_mean:.2f} +/- {od_std:.2f}')
+    print(f'  RAW = {raw_mean:.0f} +/- {raw_std:.0f}')
         
 def test_heaters():
     print('Testing Heaters')

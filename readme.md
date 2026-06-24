@@ -23,8 +23,11 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 1. Run `poetry run python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
 2. Run `poetry run python evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
 3. Run `poetry run python evotool.py diagnose temp`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
-4. Run `poetry run python evotool.py diagnose od_left`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-5. Run `poetry run python evotool.py diagnose od_right`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
+4. Diagnose the left OD sensor. Each run measures the probe currently inserted in the left incubator (10 readings, averaged) and prints the mean OD and raw value, then exits.
+   - Insert the **clear** probe and run `poetry run python evotool.py diagnose od_left`. Note the reported OD.
+   - Insert the **turbid** probe and run the same command again. Note the reported OD.
+   - The turbid probe should read a higher OD than the clear probe.
+5. Repeat for the right OD sensor using `poetry run python evotool.py diagnose od_right`.
 6. Run `poetry python evotool.py diagnose stepper angle 180`. You should observe stepper shaft rotating 180 degrees.
 
 ### Reactor calibration
