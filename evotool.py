@@ -129,11 +129,11 @@ calibrate_inc_right_od(num_probes={num_probes})"""
         script_file.write(script_content)
     run_script(script, port)
 
-def run_temp_calibration(target_temp, port, duration=600, temp_tol=0.5, drift_tol=0.2, settle_window=30):
+def run_temp_calibration(target_temp, port, duration=600, temp_tol=0.5, drift_tol=0.2, settle_window=30, hold=180):
     script_content = f"""from calibration import stop_all, calibrate_temp
 
 stop_all()
-calibrate_temp({target_temp}, max_duration_s={duration}, temp_tol={temp_tol}, drift_tol={drift_tol}, settle_window_s={settle_window})
+calibrate_temp({target_temp}, max_duration_s={duration}, temp_tol={temp_tol}, drift_tol={drift_tol}, settle_window_s={settle_window}, hold_s={hold})
 """
     script = DIR_TMP / 'calibrate_temp.py'
     with open(script, 'w') as script_file:
@@ -817,7 +817,8 @@ if __name__ == '__main__':
 
     parser_calibrate_temp = calibrate_hardware_parsers.add_parser('temp', help='Calibrate temperature sensors')
     parser_calibrate_temp.add_argument('target_temp', type=float, help='Target temperature for calibration')
-    parser_calibrate_temp.add_argument('--duration', type=float, default=600, help='Max seconds to run before stopping if not stabilized (cap). Default 600.')
+    parser_calibrate_temp.add_argument('--duration', type=float, default=600, help='Max seconds to heat before giving up if not stabilized (cap). Default 600.')
+    parser_calibrate_temp.add_argument('--hold', type=float, default=180, help='Seconds to hold at target (heaters on) after settling, so the tubes do not cool while you measure. Default 180.')
     parser_calibrate_temp.add_argument('--temp-tol', dest='temp_tol', type=float, default=0.5, help='Accuracy band (C): |mean(T)-target| must be within this to count as settled. Default 0.5.')
     parser_calibrate_temp.add_argument('--drift-tol', dest='drift_tol', type=float, default=0.2, help='Flatness band (C): half-window mean drift must be within this to count as settled. Default 0.2.')
     parser_calibrate_temp.add_argument('--settle-window', dest='settle_window', type=float, default=30, help='Window in seconds over which stabilization is evaluated. Default 30.')
@@ -991,7 +992,7 @@ if __name__ == '__main__':
         elif args.part == 'temp':
             run_temp_calibration(args.target_temp, port, duration=args.duration,
                                  temp_tol=args.temp_tol, drift_tol=args.drift_tol,
-                                 settle_window=args.settle_window)
+                                 settle_window=args.settle_window, hold=args.hold)
         elif args.part == 'bact_stepper':
             run_bact_stepper_calibration(args.num_steps, args.pwm, port)
             with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'w') as steps_file:

@@ -84,11 +84,11 @@ If that's not the case, execute two more commands:
 To calibrate the temperature, we need to heat both lagoon and tubribostats to a pre-defined temperature and then measure the actual temperature.
 Recommended set of temperature to use are: 27, 30, 35, 39
 
-1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`. The command heats all three zones, streams `T`/`T_raw` as it goes, and **stops on its own** once every zone has settled at the target (or after a duration cap) — no Ctrl+C needed. Heaters are turned off automatically when it stops.
-2. When it stops it prints a `STABILIZED` (or `TIMEOUT`) line followed by a final summary block. At that point, measure the actual temperature in the glass tubes with an external thermometer, and record the printed `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)` values.
+1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`. The command heats all three zones and streams `T`/`T_raw` as it goes. Once every zone has settled at the target it prints `STABILIZED` and then **keeps the heaters on, holding at the target** for a fixed window (default 180s) so the tubes don't cool while you measure — no Ctrl+C needed.
+2. While it is holding (lines tagged `[HOLD …]`), measure the actual temperature in each glass tube with an external thermometer and read the live `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)` values. When the hold ends the heaters switch off and a final summary repeats the steady-state `T_raw` values to record.
 3. Repeat for every target temperature.
 
-Tuning (optional): `--duration <s>` caps the run (default 600; increase if it times out before reaching target), `--temp-tol <C>` sets how close to target counts as settled (default 0.5), `--drift-tol <C>` sets the allowed drift over the settle window (default 0.2), and `--settle-window <s>` sets that window (default 30). A `TIMEOUT` with a `did not reach target` marker means a zone never got close enough — bump `--duration` or check the heater.
+Tuning (optional): `--hold <s>` sets how long it holds at target for measurement (default 180; increase if you need more time). `--duration <s>` caps the heat-up phase (default 600; increase if it times out before reaching target). `--temp-tol <C>` sets how close to target counts as settled (default 0.5), `--drift-tol <C>` the allowed drift over the settle window (default 0.2), and `--settle-window <s>` that window (default 30). A `TIMEOUT` with a `did not reach target` marker means a zone never got close enough — bump `--duration` or check the heater.
 
 
 #### Calculate new config based on the calibrated values.
