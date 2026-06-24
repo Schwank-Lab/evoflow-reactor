@@ -109,31 +109,54 @@ calibrate_lagoon_stirrer(top_speed_frac={speed_frac})
     run_script(script, port)
 
 
-def run_inc_left_od_calibration(num_probes, port):
-    script_content = f"""from calibration import stop_all, calibrate_inc_left_od
+def run_od_calibration(incubator, port):
+    fn = 'calibrate_inc_left_od' if incubator == 'inc_left' else 'calibrate_inc_right_od'
+    script_content = f"""from calibration import stop_all, {fn}
 
 stop_all()
-calibrate_inc_left_od(num_probes={num_probes})"""
-    script = DIR_TMP / 'calibrate_inc_left_od.py'
+{fn}()
+"""
+    script = DIR_TMP / f'calibrate_{incubator}_od.py'
     with open(script, 'w') as script_file:
         script_file.write(script_content)
     run_script(script, port)
 
-def run_inc_right_od_calibration(num_probes, port):
-    script_content = f"""from calibration import stop_all, calibrate_inc_right_od
+def add_od_calibration_probe(incubator, expected_od, reset, calibration_folder, port):
+    """Measure the inserted reference probe and append (raws, expected_od) to the calibration files."""
+    if incubator == 'inc_left':
+        measured_path = calibration_folder / CALIBRATION_INC_LEFT_OD_MEASURED
+        expected_path = calibration_folder / CALIBRATION_INC_LEFT_OD_EXPECTED
+    else:
+        measured_path = calibration_folder / CALIBRATION_INC_RIGHT_OD_MEASURED
+        expected_path = calibration_folder / CALIBRATION_INC_RIGHT_OD_EXPECTED
 
-stop_all()
-calibrate_inc_right_od(num_probes={num_probes})"""
-    script = DIR_TMP / 'calibrate_inc_right_od.py'
-    with open(script, 'w') as script_file:
-        script_file.write(script_content)
-    run_script(script, port)
+    if reset:
+        measured_path.unlink(missing_ok=True)
+        expected_path.unlink(missing_ok=True)
+        print(f'Reset {incubator} OD calibration data.')
 
-def run_temp_calibration(target_temp, port):
+    run_od_calibration(incubator, port)
+    probe_csv = DIR_TMP / 'od_calibration_probe.csv'
+    get_ampy('tmp/od_calibration_probe.csv', probe_csv, port)
+    with open(probe_csv) as f:
+        row = f.read().strip()
+
+    with open(measured_path, 'a') as f:
+        f.write(row + '\n')
+    with open(expected_path, 'a') as f:
+        f.write(f'{expected_od}\n')
+
+    raws = [float(x) for x in row.split(',') if x]
+    mean_raw = sum(raws) / len(raws) if raws else float('nan')
+    with open(expected_path) as f:
+        n = len([line for line in f if line.strip()])
+    print(f'Recorded: expected OD={expected_od} -> mean RAW={mean_raw:.1f}  ({n} probe(s) so far for {incubator})')
+
+def run_temp_calibration(target_temp, port, temp_tol, drift_tol, settle_window):
     script_content = f"""from calibration import stop_all, calibrate_temp
 
 stop_all()
-calibrate_temp({target_temp})
+calibrate_temp({target_temp}, temp_tol={temp_tol}, drift_tol={drift_tol}, settle_window_s={settle_window})
 """
     script = DIR_TMP / 'calibrate_temp.py'
     with open(script, 'w') as script_file:
@@ -810,13 +833,18 @@ if __name__ == '__main__':
     parser_calibrate_inc_right_stirrer.add_argument('speed_frac', type=float, help='Speed fraction, from 0 to 1')
 
 
-    parser_calibrate_inc_left_od = calibrate_hardware_parsers.add_parser('inc_left_od', help='Calibrate optical density sensors on left incubator')
-    parser_calibrate_inc_left_od.add_argument('expected_ods', type=float, nargs='+', help='Expected OD values for each probe')
-    parser_calibrate_inc_right_od = calibrate_hardware_parsers.add_parser('inc_right_od', help='Calibrate optical density sensors on right incubator')
-    parser_calibrate_inc_right_od.add_argument('expected_ods', type=float, nargs='+', help='Expected OD values for each probe')
+    parser_calibrate_inc_left_od = calibrate_hardware_parsers.add_parser('inc_left_od', help='Calibrate the left incubator OD sensor against one reference probe (run once per probe)')
+    parser_calibrate_inc_left_od.add_argument('expected_od', type=float, help='Known OD of the probe currently inserted')
+    parser_calibrate_inc_left_od.add_argument('--reset', action='store_true', help='Discard previously recorded probes and start a fresh set')
+    parser_calibrate_inc_right_od = calibrate_hardware_parsers.add_parser('inc_right_od', help='Calibrate the right incubator OD sensor against one reference probe (run once per probe)')
+    parser_calibrate_inc_right_od.add_argument('expected_od', type=float, help='Known OD of the probe currently inserted')
+    parser_calibrate_inc_right_od.add_argument('--reset', action='store_true', help='Discard previously recorded probes and start a fresh set')
 
     parser_calibrate_temp = calibrate_hardware_parsers.add_parser('temp', help='Calibrate temperature sensors')
     parser_calibrate_temp.add_argument('target_temp', type=float, help='Target temperature for calibration')
+    parser_calibrate_temp.add_argument('--temp-tol', dest='temp_tol', type=float, default=0.5, help='Accuracy band (C): |mean(T)-target| must be within this to count as ready. Default 0.5.')
+    parser_calibrate_temp.add_argument('--drift-tol', dest='drift_tol', type=float, default=0.2, help='Flatness band (C): half-window mean drift must be within this to count as ready. Default 0.2.')
+    parser_calibrate_temp.add_argument('--settle-window', dest='settle_window', type=float, default=120, help='Window in seconds over which readiness is evaluated. Default 120.')
 
     parser_calibrate_bact_stepper = calibrate_hardware_parsers.add_parser('bact_stepper', help='Calibrate step volume of the bacteria stepper motor.\nNote: we only use stepper of the left incubator.')
     parser_calibrate_bact_stepper.add_argument('--num_steps', type=int, default=10000, help='Number of steps to use during calibration')
@@ -973,19 +1001,12 @@ if __name__ == '__main__':
             with open(calibration_folder / CALIBRATION_LAGOON_STIRRER_SPEED, 'w') as speed_file:
                 speed_file.write(str(args.speed_frac))
         elif args.part == 'inc_left_od':
-            expected_ods = args.expected_ods
-            run_inc_left_od_calibration(len(expected_ods), port)
-            get_ampy('tmp/od_calibration.csv', calibration_folder / CALIBRATION_INC_LEFT_OD_MEASURED, port)
-            with open(calibration_folder / CALIBRATION_INC_LEFT_OD_EXPECTED, 'w') as ods_file:
-                ods_file.write('\n'.join(map(str, expected_ods)))
+            add_od_calibration_probe('inc_left', args.expected_od, args.reset, calibration_folder, port)
         elif args.part == 'inc_right_od':
-            expected_ods = args.expected_ods
-            run_inc_right_od_calibration(len(expected_ods), port)
-            get_ampy('tmp/od_calibration.csv', calibration_folder / CALIBRATION_INC_RIGHT_OD_MEASURED, port)
-            with open(calibration_folder / CALIBRATION_INC_RIGHT_OD_EXPECTED, 'w') as ods_file:
-                ods_file.write('\n'.join(map(str, expected_ods)))
+            add_od_calibration_probe('inc_right', args.expected_od, args.reset, calibration_folder, port)
         elif args.part == 'temp':
-            run_temp_calibration(args.target_temp, port)
+            run_temp_calibration(args.target_temp, port, temp_tol=args.temp_tol,
+                                 drift_tol=args.drift_tol, settle_window=args.settle_window)
         elif args.part == 'bact_stepper':
             run_bact_stepper_calibration(args.num_steps, args.pwm, port)
             with open(calibration_folder / CALIBRATION_BACT_STEPPER_NUM_STEPS, 'w') as steps_file:

@@ -53,94 +53,128 @@ def _calibrate_stirrer(top_speed_frac, stirrer):
         i += 1 
 
 
-def calibrate_temp(target_temp):
+def calibrate_temp(target_temp, temp_tol, drift_tol, settle_window_s):
+    """Heat all three zones to target_temp and maintain it until the script stops.
+
+    Streams T / T_raw every report_temp_every seconds. When every zone is holding
+    within temp_tol of target with under drift_tol of drift across the last
+    settle_window_s samples, it prints a one-time notice that it is ready to
+    measure. The reactor keeps maintaining the target until interrupted, and the
+    heaters are switched off on exit.
+
+    Readiness is judged on the internal (calibrated) T over a rolling window of
+    the last settle_window_s samples; a zone is ready when both hold:
+      * accuracy: |mean(window) - target_temp| <= temp_tol
+      * flatness: |mean(2nd half) - mean(1st half)| <= drift_tol
+    """
     print('Calibrating temperature sensors')
     adjust_temp_interval_s = 1
     report_temp_every = 10
-    num_temps_to_avg = 20
-    inc_left_temps = [0.0 for _ in range(num_temps_to_avg)]
-    inc_right_temps = [0.0 for _ in range(num_temps_to_avg)]
-    lagoon_temps = [0.0 for _ in range(num_temps_to_avg)]
-    inc_left_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
-    inc_right_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
-    lagoon_temps_raw = [0.0 for _ in range(num_temps_to_avg)]
-    
-    print(f'Setting target temperature to {target_temp}C.')
-    inc_left_ctl = pace_controller.TempController(hw.inc_left.temp_sensor, hw.inc_left.heater, target_temp, logger=log)
-    inc_right_ctl = pace_controller.TempController(hw.inc_right.temp_sensor, hw.inc_right.heater, target_temp, logger=log)
-    lagoon_ctl = pace_controller.TempController(hw.temp_sensor_lagoon, hw.heater_lagoon, target_temp, logger=log)
-    i = 0
-    while True:
-        inc_left_temps[i % num_temps_to_avg] = inc_left_ctl.current_temp()
-        inc_right_temps[i % num_temps_to_avg] = inc_right_ctl.current_temp()
-        lagoon_temps[i % num_temps_to_avg] = lagoon_ctl.current_temp()
-        inc_left_temps_raw[i % num_temps_to_avg] = inc_left_ctl.current_temp_raw()
-        inc_right_temps_raw[i % num_temps_to_avg] = inc_right_ctl.current_temp_raw()
-        lagoon_temps_raw[i % num_temps_to_avg] = lagoon_ctl.current_temp_raw()
-        if i > 0  and i % report_temp_every == 0:
-            mean_inc_left, std_inc_left = compute_stats(inc_left_temps)
-            mean_inc_right, std_inc_right = compute_stats(inc_right_temps)
-            mean_lagoon, std_lagoon = compute_stats(lagoon_temps) 
-            mean_raw_inc_left, std_raw_inc_left = compute_stats(inc_left_temps_raw)
-            mean_raw_inc_right, std_raw_inc_right = compute_stats(inc_right_temps_raw)
-            mean_raw_lagoon, std_raw_lagoon = compute_stats(lagoon_temps_raw)
-            print(f'Measurement time {i*adjust_temp_interval_s}s.')
-            print(f'T(inc_left) =\t\t{mean_inc_left:.2f} (std={std_inc_left:.2f})\tT(lagoon) = \t\t{mean_lagoon:.2f} (std={std_lagoon:.2f})\tT(inc_right) = \t\t{mean_inc_right:.2f} (std={std_inc_right:.2f})')
-            print(f'T_raw(inc_left) =\t{mean_raw_inc_left:.2f} (std={std_raw_inc_left:.2f})\tT_raw(lagoon) = \t{mean_raw_lagoon:.2f} (std={std_raw_lagoon:.2f})\tT_raw(inc_right) = \t{mean_raw_inc_right:.2f} (std={std_raw_inc_right:.2f})')
-        inc_left_ctl.maintain_temp()
-        inc_right_ctl.maintain_temp()
-        lagoon_ctl.maintain_temp()
-        time.sleep(adjust_temp_interval_s)
-        i += 1
+    n_window = int(settle_window_s)
 
-def calibrate_inc_left_od(num_probes=5):
+    print(f'Setting target temperature to {target_temp}C.')
+
+    zones = [
+        ('inc_left', pace_controller.TempController(hw.inc_left.temp_sensor, hw.inc_left.heater, target_temp, logger=log)),
+        ('lagoon', pace_controller.TempController(hw.temp_sensor_lagoon, hw.heater_lagoon, target_temp, logger=log)),
+        ('inc_right', pace_controller.TempController(hw.inc_right.temp_sensor, hw.inc_right.heater, target_temp, logger=log)),
+    ]
+    temps = {name: [] for name, _ in zones}
+    raws = {name: [] for name, _ in zones}
+
+    def ready(window):
+        if len(window) < n_window:
+            return False
+        mean = sum(window) / len(window)
+        if abs(mean - target_temp) > temp_tol:
+            return False
+        half = len(window) // 2
+        first = sum(window[:half]) / half
+        second = sum(window[half:]) / (len(window) - half)
+        return abs(second - first) <= drift_tol
+
+    i = 0
+    announced = False
+    try:
+        while True:
+            for name, ctl in zones:
+                t = ctl.current_temp()
+                t_raw = ctl.current_temp_raw()
+                if t is not None:
+                    temps[name] = (temps[name] + [t])[-n_window:]
+                if t_raw is not None:
+                    raws[name] = (raws[name] + [t_raw])[-n_window:]
+
+            if i > 0 and i % report_temp_every == 0:
+                line_t = []
+                line_raw = []
+                for name, _ in zones:
+                    tm, ts = compute_stats(temps[name])
+                    rm, rs = compute_stats(raws[name])
+                    line_t.append(f'T({name})={tm:.2f}(std={ts:.2f})')
+                    line_raw.append(f'T_raw({name})={rm:.2f}(std={rs:.2f})')
+                print(f'[{i * adjust_temp_interval_s}s]\t' + '\t'.join(line_t))
+                print(f'[{i * adjust_temp_interval_s}s]\t' + '\t'.join(line_raw))
+
+            if not announced and all(ready(temps[name]) for name, _ in zones):
+                announced = True
+                print()
+                print(f'>>> Holding at {target_temp}C. Measure the actual temperature in each glass tube now,')
+                print('>>> reading the T_raw values above. The reactor keeps holding until you stop it. <<<')
+
+            for _, ctl in zones:
+                ctl.maintain_temp()
+            time.sleep(adjust_temp_interval_s)
+            i += 1
+    finally:
+        hw.inc_left.heater.off()
+        hw.inc_right.heater.off()
+        hw.heater_lagoon.off()
+        print('Heaters off.')
+
+def calibrate_inc_left_od():
     q = pace_controller.TaskQueue(clk)
     stirrer = pace_controller.StirrerController(hw.inc_left.stirrer, hw_config.inc_left.stirrer_top_speed_frac, q, logger=log)
-    _calibrate_od(num_probes, stirrer, hw.inc_left.led, hw.inc_left.od_sensor, q)
+    _calibrate_od(stirrer, hw.inc_left.led, hw.inc_left.od_sensor, q)
 
 
-def calibrate_inc_right_od(num_probes=5):
+def calibrate_inc_right_od():
     q = pace_controller.TaskQueue(clk)
     stirrer = pace_controller.StirrerController(hw.inc_right.stirrer, hw_config.inc_right.stirrer_top_speed_frac, q, logger=log)
-    _calibrate_od(num_probes, stirrer, hw.inc_right.led, hw.inc_right.od_sensor, q)
+    _calibrate_od(stirrer, hw.inc_right.led, hw.inc_right.od_sensor, q)
 
 
-def _calibrate_od(num_probes, stirrer_ctl, led, sensor, task_queue):
+def _calibrate_od(stirrer_ctl, led, sensor, task_queue):
+    """Measure the raw OD of the probe currently inserted and write it to tmp/od_calibration_probe.csv.
+
+    The host pairs this measurement with the known OD of the inserted probe and
+    accumulates one row per probe across calls.
+    """
     measure_od_interval_s = 5
-    num_measurements_per_probe = 5
-    measure_od_delay_s = 5
-    
-    
-    measurements = [[] for _ in range(num_probes)] 
-    for num_probe in range(num_probes):
-        # Give user time to switch out the probe.
-        print(f'Insert probe {num_probe+1} out of {num_probes}')
-        for t in range(measure_od_delay_s, 0, -1):
-            print(f'Measruing OD in {t}s')
-            time.sleep(1)
+    num_measurements = 5
 
-        # Start the stirrer
-        stirrer_ctl.restart_motor()
-        while not task_queue.empty():
-            task_queue.cycle()
-            print('Starting the motor...')
+    stirrer_ctl.restart_motor()
+    while not task_queue.empty():
+        task_queue.cycle()
 
-        # Measure OD
-        for num_measurement in range(num_measurements_per_probe):
-            led.on()
-            time.sleep(pace_controller.ODController.TIME_OD_DELAY / 1000)
-            raw = sensor.read_raw()
-            measurements[num_probe].append(raw)
-            led.off()
-            time.sleep(measure_od_interval_s)
-            print(f'Probe {num_probe+1}/{num_probes} Measurement {num_measurement+1}/{num_measurements_per_probe} RAW={raw:.2f}')
-        
-        stirrer_ctl._stirrer.off()
+    raws = []
+    for num_measurement in range(num_measurements):
+        led.on()
+        time.sleep(pace_controller.ODController.TIME_OD_DELAY / 1000)
+        raw = sensor.read_raw()
+        raws.append(raw)
+        led.off()
+        time.sleep(measure_od_interval_s)
+        print(f'Measurement {num_measurement+1}/{num_measurements} RAW={raw:.2f}')
 
-    with open('tmp/od_calibration.csv', 'w') as f: 
-        for probe_measurements in measurements:
-            f.write(','.join(map(str, probe_measurements)))
-            f.write('\n')
+    stirrer_ctl._stirrer.off()
+
+    mean, std = compute_stats(raws)
+    print(f'Inserted probe RAW over {num_measurements} readings: mean={mean:.2f} std={std:.2f}')
+
+    with open('tmp/od_calibration_probe.csv', 'w') as f:
+        f.write(','.join(map(str, raws)))
+        f.write('\n')
 
 def calibrate_pump_incubator_to_lagoon(num_steps=10000, pwm=1000): 
     time_s = num_steps / pwm

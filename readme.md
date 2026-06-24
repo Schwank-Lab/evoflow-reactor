@@ -25,11 +25,17 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 - Glass tubes (culture probes) fitted with magnetic stirring bars — for the stirrer check.
 - A set of OD probes spanning a range of turbidity, at minimum a clear/blank probe and a turbid probe. The turbid probe should read a higher OD.
 
-1. Run `poetry run python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
+> **FOR AGENT**
+> Every step here needs the user to physically set up hardware (insert probes/tubes) and/or watch the reactor. Before each command, tell the user what to prepare and what to look for, and wait for their confirmation. For OD (steps 4–5), run the command once with the clear probe and once with the turbid probe, prompting the user to swap between runs, then compare the two printed ODs yourself.
+
+1. Run `poetry run python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be counter-clockwise
 2. Run `poetry run python evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
 3. Run `poetry run python evotool.py diagnose temp`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
-4. Run `poetry run python evotool.py diagnose od_left`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
-5. Run `poetry run python evotool.py diagnose od_right`. Follow instructions on the screen, you'll need to put different probes to measeure OD. You should observe OD of the turbid probe being higher.
+4. Diagnose the left OD sensor. Each run measures the probe currently inserted in the left incubator (10 readings, averaged) and prints the mean OD and raw value, then exits.
+   - Insert the **clear** probe and run `poetry run python evotool.py diagnose od_left`. Note the reported OD.
+   - Insert the **turbid** probe and run the same command again. Note the reported OD.
+   - The turbid probe should read a higher OD than the clear probe.
+5. Repeat for the right OD sensor using `poetry run python evotool.py diagnose od_right`.
 6. Run `poetry python evotool.py diagnose stepper angle 180`. You should observe stepper shaft rotating 180 degrees.
 
 ### Reactor calibration
@@ -48,6 +54,9 @@ Follow the instructions below to calibrate individual hardware parts. Note that 
 
 #### Stirrer Calibration
 
+> **FOR AGENT**
+> User intervention: prompt the user to insert a probe (lid off) and watch the vortex, then run the command. The stirrer keeps spinning for observation; if the vortex is too deep or too shallow, rerun with a different speed.
+
 1. Put a probe with removed lid into the left incubator.
 2. Run `poetry run python evotool.py calibrate inc_left_stirrer <speed>`, e.g. `python evotool.py calibrate inc_left_stirrer 0.25`
 3. Observe the vortex in the probe. Vortex should be present but not too deep, to not obstruct the OD sensor.
@@ -57,17 +66,22 @@ Follow the instructions below to calibrate individual hardware parts. Note that 
 
 #### OD Calibration
 
-To calibrate OD, we need to measure ODs of the probes with the known OD value. We have such probes, use some of them. Recommended is
+To calibrate OD, measure several reference probes with known OD values — **one probe per command**. Each run measures the probe currently inserted and records it; the readings accumulate across runs. Recommended ODs: 0.1, 0.4, 0.6, 0.8, 1.0.
 
-1. Run `poetry run python evotool.py calibrate inc_left_od <od1> <od2> <od3>` and follow instructions.
-2. Run `poetry run python evotool.py calibrate inc_right_od <od1> <od2> <od3>` and follow instructions.
+> **FOR AGENT**
+> User intervention, one reference probe per call: prompt the user to insert the probe of the stated known OD and confirm before each run (use `--reset` on the first). The printed running count and mean RAW let you confirm that a higher OD reads a higher RAW.
 
-Recommended ODs to use are `poetry run python evotool.py calibrate inc_left_od 0.1 0.4 0.6 0.8 1.0`
+1. Insert the first reference probe into the left incubator and run `poetry run python evotool.py calibrate inc_left_od <od> --reset`, e.g. `poetry run python evotool.py calibrate inc_left_od 0.1 --reset`. The `--reset` starts a fresh set (use it only for the first probe).
+2. Insert each remaining probe in turn and run `poetry run python evotool.py calibrate inc_left_od <od>` (without `--reset`), e.g. `0.4`, then `0.6`, `0.8`, `1.0`. Each run appends one probe; it prints the running count and the mean RAW so you can sanity-check that higher OD reads a higher RAW.
+3. Repeat for the right incubator with `poetry run python evotool.py calibrate inc_right_od <od>` (start with `--reset`).
 
 
 #### Bacterial Stepper Calibration
 
 Bacterial stepper motors pump bacteria from incubators into the lagoon at a specified flow rate. We only calibrate the front left stepper pump and assume that the front right stepper pump works the same way.
+
+> **FOR AGENT**
+> Priming (step 2) needs a **background sub-shell**: start `calibrate bact_stepper` in the background, tell the user to watch for liquid at the far end of the tube, and when they confirm, kill the sub-shell and run `poetry run python evotool.py diagnose stop`. Running that command interrupts the priming run and switches the pump off. The measurement run (step 4) is self-terminating — just have the user weigh the empty bottle first and the pumped liquid after.
 
 1. Attach tubing to the inc_left -> lagoon pump (front left stepper pump). Add ~100ml of liquid into a bottle, dip the input tube into that bottle.
 2. Prime the pump by running `poetry run python evotool.py calibrate bact_stepper`. Once you see liquid coming out from the other end of the tube, interrupt the screen using `Ctrl+C`.
@@ -80,6 +94,9 @@ Note: you can specify custom PWM value by using `--pwm <value>` flag, e.g. `pyth
 #### Induction Stepper calibration
 
 We need to calibrate the direction of the induction stepper motor.
+
+> **FOR AGENT**
+> User intervention: after running, ask the user which way the shaft turned; if it is not clockwise, rerun with `-1`.
 
 1. Run `poetry run python evotool.py calibrate induction_stepper 1`
 2. Observe the rotation of the stepper shaft, it should be turning **clockwise**, when looked from the direction of the motor.
@@ -94,9 +111,14 @@ If that's not the case, execute two more commands:
 To calibrate the temperature, we need to heat both lagoon and tubribostats to a pre-defined temperature and then measure the actual temperature.
 Recommended set of temperature to use are: 27, 30, 35, 39
 
-1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`
-2. Monitor the output, after you see that `T(inc_left)`, `T(lagoon)` and `T(inc_right)` have all reached the defined temperature, measure the actual temperature in the glass tubes as well as the values `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)`
+> **FOR AGENT**
+> This command runs until stopped — start it in a **background sub-shell** so you keep control. Tell the user to ready a thermometer. Watch the streamed output for the "ready to measure" line, then prompt the user to measure each glass tube and read the `T_raw` values. To stop, kill the sub-shell and run `poetry run python evotool.py diagnose stop`. Running that command interrupts the loop and switches the heaters off.
+
+1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`. It heats all three zones and streams `T`/`T_raw` while maintaining the target. Once every zone is holding at the target it prints a line saying it is ready to measure, and keeps maintaining the target until you stop it.
+2. While it holds at the target, measure the actual temperature in each glass tube with an external thermometer and record the `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)` values printed on the console. Press `Ctrl+C` to stop when you are done; the heaters switch off on exit.
 3. Repeat for every target temperature.
+
+Tuning (optional): `--temp-tol <C>` sets how close to target counts as ready (default 0.5), `--drift-tol <C>` the allowed drift over the readiness window (default 0.2), and `--settle-window <s>` that window (default 120).
 
 
 #### Calculate new config based on the calibrated values.
