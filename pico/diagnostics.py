@@ -166,11 +166,10 @@ def measure_od_inc_right():
     
     
 def report_od(measure_od, name='OD'):
-    """Measure the probe currently in the incubator once and print a human-readable summary.
+    """Measure the probe currently in the incubator once and print a summary.
 
-    Swapping probes (clear vs. turbid) and comparing the results is done by the
-    caller (a human rerunning the command, or an agent driving the user) -- this
-    only measures whatever is inserted right now.
+    Measures whatever is inserted right now; the caller swaps probes and compares
+    readings across runs (e.g. a clear vs. a turbid probe).
     """
     print(f'Measuring OD of the probe currently inserted in {name}...')
     (raw_mean, raw_std), (od_mean, od_std) = measure_od()

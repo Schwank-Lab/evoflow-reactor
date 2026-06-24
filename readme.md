@@ -20,7 +20,7 @@ You need the evoflow reactor, a laptop/PC (host) and a usb cable connecting the 
 
 ### Reactor diagnostics
 
-1. Run `poetry run python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be clock-wise
+1. Run `poetry run python evotool.py diagnose pumps`. This will activate pumps from left to right, rotation should be counter-clockwise
 2. Run `poetry run python evotool.py diagnose stirrers`. Before running, but the glass tubes with stirring bars into the reactor. Stirring bards should turn.
 3. Run `poetry run python evotool.py diagnose temp`. This will turn on the heaters and will write temperature to the console. You should observe the temperature slowly increasing.
 4. Diagnose the left OD sensor. Each run measures the probe currently inserted in the left incubator (10 readings, averaged) and prints the mean OD and raw value, then exits.
@@ -84,11 +84,11 @@ If that's not the case, execute two more commands:
 To calibrate the temperature, we need to heat both lagoon and tubribostats to a pre-defined temperature and then measure the actual temperature.
 Recommended set of temperature to use are: 27, 30, 35, 39
 
-1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`. The command heats all three zones and streams `T`/`T_raw` as it goes. Once every zone has settled at the target it prints `STABILIZED` and then **keeps the heaters on, holding at the target** for a fixed window (default 180s) so the tubes don't cool while you measure — no Ctrl+C needed.
-2. While it is holding (lines tagged `[HOLD …]`), measure the actual temperature in each glass tube with an external thermometer and read the live `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)` values. When the hold ends the heaters switch off and a final summary repeats the steady-state `T_raw` values to record.
+1. Run `poetry run python evotool.py calibrate temp <YOUR_TEMP>`, e.g. `poetry run python evotool.py calibrate temp 25`. It heats all three zones and streams `T`/`T_raw` while maintaining the target. Once every zone is holding at the target it prints a line saying it is ready to measure, and keeps maintaining the target until you stop it.
+2. While it holds at the target, measure the actual temperature in each glass tube with an external thermometer and record the `T_raw(inc_left)`, `T_raw(lagoon)` and `T_raw(inc_right)` values printed on the console. Press `Ctrl+C` to stop when you are done; the heaters switch off on exit.
 3. Repeat for every target temperature.
 
-Tuning (optional): `--hold <s>` sets how long it holds at target for measurement (default 180; increase if you need more time). `--duration <s>` caps the heat-up phase (default 600; increase if it times out before reaching target). `--temp-tol <C>` sets how close to target counts as settled (default 0.5), `--drift-tol <C>` the allowed drift over the settle window (default 0.2), and `--settle-window <s>` that window (default 30). A `TIMEOUT` with a `did not reach target` marker means a zone never got close enough — bump `--duration` or check the heater.
+Tuning (optional): `--temp-tol <C>` sets how close to target counts as ready (default 0.5), `--drift-tol <C>` the allowed drift over the readiness window (default 0.2), and `--settle-window <s>` that window (default 120).
 
 
 #### Calculate new config based on the calibrated values.

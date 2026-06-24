@@ -4,8 +4,6 @@ from pathlib import Path
 def generate_script(incubator, temp_dir=Path('tmp'), script_name='diagnostics_od.py'):
     assert incubator in {'inc_left', 'inc_right'}
     measure_od = 'measure_od_inc_left' if incubator == 'inc_left' else 'measure_od_inc_right'
-    # Each run measures whichever probe is currently inserted, once, and prints a
-    # human-readable summary. Swap the probe and rerun to compare clear vs. turbid.
     script_content = f"""from diagnostics import stop_all, report_od, {measure_od}
 
 stop_all()

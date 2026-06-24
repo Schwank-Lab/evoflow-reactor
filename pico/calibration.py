@@ -53,21 +53,19 @@ def _calibrate_stirrer(top_speed_frac, stirrer):
         i += 1 
 
 
-def calibrate_temp(target_temp, max_duration_s=600, temp_tol=0.5, drift_tol=0.2, settle_window_s=30, hold_s=180):
-    """Heat all three zones to target_temp, then hold at target for measurement.
+def calibrate_temp(target_temp, temp_tol, drift_tol, settle_window_s):
+    """Heat all three zones to target_temp and maintain it until the script stops.
 
-    The loop streams T / T_raw every report_temp_every seconds (so a human can
-    watch). Once every zone is settled it does NOT stop -- it keeps the heaters
-    maintaining the target and HOLDS for hold_s seconds, so the tubes do not cool
-    while the user measures the actual temperature with a thermometer. After the
-    hold (or if max_duration_s is reached before settling) heaters are turned off
-    and a final summary prints the steady-state T_raw values to record. No Ctrl+C
-    needed.
+    Streams T / T_raw every report_temp_every seconds. When every zone is holding
+    within temp_tol of target with under drift_tol of drift across the last
+    settle_window_s samples, it prints a one-time notice that it is ready to
+    measure. The reactor keeps maintaining the target until interrupted, and the
+    heaters are switched off on exit.
 
-    Stabilization is judged on the internal (calibrated) T over a rolling window
-    of the last settle_window_s samples. A zone is settled when both:
+    Readiness is judged on the internal (calibrated) T over a rolling window of
+    the last settle_window_s samples; a zone is ready when both hold:
       * accuracy: |mean(window) - target_temp| <= temp_tol
-      * flatness: |mean(2nd half) - mean(1st half)| <= drift_tol  (not drifting)
+      * flatness: |mean(2nd half) - mean(1st half)| <= drift_tol
     """
     print('Calibrating temperature sensors')
     adjust_temp_interval_s = 1
@@ -75,9 +73,6 @@ def calibrate_temp(target_temp, max_duration_s=600, temp_tol=0.5, drift_tol=0.2,
     n_window = int(settle_window_s)
 
     print(f'Setting target temperature to {target_temp}C.')
-    print(f'Settle when every zone stays within +/-{temp_tol}C of target and drifts '
-          f'< {drift_tol}C over {n_window}s (give up after {max_duration_s}s), then '
-          f'hold at target for {hold_s}s for measurement.')
 
     zones = [
         ('inc_left', pace_controller.TempController(hw.inc_left.temp_sensor, hw.inc_left.heater, target_temp, logger=log)),
@@ -87,7 +82,7 @@ def calibrate_temp(target_temp, max_duration_s=600, temp_tol=0.5, drift_tol=0.2,
     temps = {name: [] for name, _ in zones}
     raws = {name: [] for name, _ in zones}
 
-    def settled(window):
+    def ready(window):
         if len(window) < n_window:
             return False
         mean = sum(window) / len(window)
@@ -99,65 +94,43 @@ def calibrate_temp(target_temp, max_duration_s=600, temp_tol=0.5, drift_tol=0.2,
         return abs(second - first) <= drift_tol
 
     i = 0
-    stabilized = False
-    stabilized_at = 0
-    while True:
-        for name, ctl in zones:
-            t = ctl.current_temp()
-            t_raw = ctl.current_temp_raw()
-            if t is not None:
-                temps[name] = (temps[name] + [t])[-n_window:]
-            if t_raw is not None:
-                raws[name] = (raws[name] + [t_raw])[-n_window:]
+    announced = False
+    try:
+        while True:
+            for name, ctl in zones:
+                t = ctl.current_temp()
+                t_raw = ctl.current_temp_raw()
+                if t is not None:
+                    temps[name] = (temps[name] + [t])[-n_window:]
+                if t_raw is not None:
+                    raws[name] = (raws[name] + [t_raw])[-n_window:]
 
-        elapsed = i * adjust_temp_interval_s
-        if i > 0 and i % report_temp_every == 0:
-            tag = f'HOLD {elapsed - stabilized_at}/{hold_s}s' if stabilized else f'{elapsed}s'
-            line_t = []
-            line_raw = []
-            for name, _ in zones:
-                tm, ts = compute_stats(temps[name])
-                rm, rs = compute_stats(raws[name])
-                line_t.append(f'T({name})={tm:.2f}(std={ts:.2f})')
-                line_raw.append(f'T_raw({name})={rm:.2f}(std={rs:.2f})')
-            print(f'[{tag}]\t' + '\t'.join(line_t))
-            print(f'[{tag}]\t' + '\t'.join(line_raw))
+            if i > 0 and i % report_temp_every == 0:
+                line_t = []
+                line_raw = []
+                for name, _ in zones:
+                    tm, ts = compute_stats(temps[name])
+                    rm, rs = compute_stats(raws[name])
+                    line_t.append(f'T({name})={tm:.2f}(std={ts:.2f})')
+                    line_raw.append(f'T_raw({name})={rm:.2f}(std={rs:.2f})')
+                print(f'[{i * adjust_temp_interval_s}s]\t' + '\t'.join(line_t))
+                print(f'[{i * adjust_temp_interval_s}s]\t' + '\t'.join(line_raw))
 
-        if not stabilized:
-            if all(settled(temps[name]) for name, _ in zones):
-                stabilized = True
-                stabilized_at = elapsed
+            if not announced and all(ready(temps[name]) for name, _ in zones):
+                announced = True
                 print()
-                print(f'STABILIZED after {elapsed}s. Heaters stay ON, holding at target for {hold_s}s.')
-                print('>>> Measure the actual temperature in each glass tube NOW; read T_raw from the [HOLD] lines. <<<')
-            elif elapsed >= max_duration_s:
-                break
-        elif elapsed - stabilized_at >= hold_s:
-            break
+                print(f'>>> Holding at {target_temp}C. Measure the actual temperature in each glass tube now,')
+                print('>>> reading the T_raw values above. The reactor keeps holding until you stop it. <<<')
 
-        # Keep the heaters maintaining the target -- during both heat-up and hold,
-        # so the tubes stay at temperature while the user measures.
-        for _, ctl in zones:
-            ctl.maintain_temp()
-        time.sleep(adjust_temp_interval_s)
-        i += 1
-
-    # Heaters off on exit -- never leave the reactor heating.
-    hw.inc_left.heater.off()
-    hw.inc_right.heater.off()
-    hw.heater_lagoon.off()
-
-    print()
-    if stabilized:
-        print(f'DONE -- stabilized, then held at target for {hold_s}s. Heaters off.')
-    else:
-        print(f'TIMEOUT after {max_duration_s}s -- not all zones settled. Heaters off. (Increase --duration or check the heater.)')
-    print('Steady-state T_raw to record (pair each with your thermometer reading):')
-    for name, _ in zones:
-        tm, ts = compute_stats(temps[name])
-        rm, rs = compute_stats(raws[name])
-        flag = '' if abs(tm - target_temp) <= temp_tol else '  <-- did not reach target'
-        print(f'  {name}:\tT={tm:.2f} (std={ts:.2f})\tT_raw={rm:.2f} (std={rs:.2f}){flag}')
+            for _, ctl in zones:
+                ctl.maintain_temp()
+            time.sleep(adjust_temp_interval_s)
+            i += 1
+    finally:
+        hw.inc_left.heater.off()
+        hw.inc_right.heater.off()
+        hw.heater_lagoon.off()
+        print('Heaters off.')
 
 def calibrate_inc_left_od(num_probes=5):
     q = pace_controller.TaskQueue(clk)
