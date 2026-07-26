@@ -18,7 +18,7 @@ pyserial = ">=3.5,<4.0"
 pandas = ">=2.2.2,<3.0.0"
 scikit-learn = ">=1.5.1,<2.0.0"
 thonny = ">=4.1.4,<5.0.0"
-evoflow_db = { git = "git@github.com/Schwank-Lab/evoflow-monitor.git", branch = "main", subdirectory = "evohub/evoflow_db" }
+evoflow_db = { git = "https://github.com/Schwank-Lab/evoflow-monitor.git", branch = "main", subdirectory = "evohub/evoflow_db" }
 
 [tool.poetry]
 package-mode = true

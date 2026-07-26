@@ -5,9 +5,7 @@ We use Raspberry Connect to remote control the bridge. Follow instructions at ht
 
 ## Get the code 
 
-generate an ssh key: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-
-run `git clone git@github.com:Schwank-Lab/evoflow-reactor.git`
+run `git clone https://github.com/Schwank-Lab/evoflow-reactor.git`
 
 
 ## Install bridge code. 
