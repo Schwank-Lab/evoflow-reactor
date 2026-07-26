@@ -582,13 +582,13 @@ files = []
 develop = false
 
 [package.dependencies]
-evoflow_utils = {git = "ssh://git@github.com/Schwank-Lab/evoflow-monitor.git", branch = "main", subdirectory = "evohub/evoflow_utils"}
+evoflow_utils = {git = "https://github.com/Schwank-Lab/evoflow-monitor.git", branch = "main", subdirectory = "evohub/evoflow_utils"}
 psycopg2-binary = ">=2.9.9,<3.0.0"
 sqlalchemy = ">=2.0.30,<3.0.0"
 
 [package.source]
 type = "git"
-url = "ssh://git@github.com/Schwank-Lab/evoflow-monitor.git"
+url = "https://github.com/Schwank-Lab/evoflow-monitor.git"
 reference = "main"
 resolved_reference = "644981a79b613ab35ee38b8de7c02dbe3ec09cd4"
 subdirectory = "evohub/evoflow_db"
@@ -608,7 +608,7 @@ python-dotenv = "^1.0.1"
 
 [package.source]
 type = "git"
-url = "ssh://git@github.com/Schwank-Lab/evoflow-monitor.git"
+url = "https://github.com/Schwank-Lab/evoflow-monitor.git"
 reference = "main"
 resolved_reference = "644981a79b613ab35ee38b8de7c02dbe3ec09cd4"
 subdirectory = "evohub/evoflow_utils"
@@ -3186,4 +3186,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "1952f31a2943208f29086a6ea4c965acd084463bf872e9bd14a0b483e91e1788"
+content-hash = "c3c3309067653d5554adb727ec24fafb30cda51d661ba42a063dcbb863a774bb"
