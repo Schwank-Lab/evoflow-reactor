@@ -485,21 +485,70 @@ def update_flow_rate(flow_rate, port):
 
 
 
-def new_experiment(experiment_config, experiment_name, port):
-    # get reactor id from pico
-    get_ampy('/configs/network_config.json', DIR_TMP / 'network_config.json', port)
-    with open(DIR_TMP / 'network_config.json', 'r') as f:
+# Defaults used when an experiment config is built from command line options
+# instead of being read from a file.
+DEFAULT_TARGET_OD = 0.7
+DEFAULT_TARGET_TEMP = 37
+DEFAULT_LAGOON_VOLUME = 7
+DEFAULT_ARABINOSE_STOCK_CONCENTRATION = 2000  # mM, the 2M stock of the protocol.
+
+
+def build_experiment_config(incubator, flow_rate):
+    """Build an experiment config from command line options.
+
+    incubator selects which incubator feeds the lagoon ('left', 'right' or
+    'both'); with 'both' the lagoon is fed in equal parts from each one. All
+    remaining parameters are kept at their defaults.
+    """
+    use_left = incubator in {'left', 'both'}
+    use_right = incubator in {'right', 'both'}
+    if incubator == 'both':
+        left_frac, right_frac = 0.5, 0.5
+    else:
+        left_frac, right_frac = (1.0, 0.0) if use_left else (0.0, 1.0)
+
+    return {
+        'inc_left': {
+            'use': use_left,
+            'target_od': DEFAULT_TARGET_OD,
+            'target_temp': DEFAULT_TARGET_TEMP,
+        },
+        'inc_right': {
+            'use': use_right,
+            'target_od': DEFAULT_TARGET_OD,
+            'target_temp': DEFAULT_TARGET_TEMP,
+        },
+        'lagoon': {
+            'target_temp': DEFAULT_TARGET_TEMP,
+            'volume': DEFAULT_LAGOON_VOLUME,
+            'flow_rate': flow_rate,
+            'inc_left_frac': left_frac,
+            'inc_right_frac': right_frac,
+            'arabinose_stock_concentration': DEFAULT_ARABINOSE_STOCK_CONCENTRATION,
+            'arabinose_target_concentration': 0,
+        },
+    }
+
+
+def new_experiment(config_json, experiment_name, port):
+    # get reactor id from pico. The local copy is removed first, so that a
+    # failed download cannot silently fall back on a stale config.
+    network_config_path = DIR_TMP / 'network_config.json'
+    network_config_path.unlink(missing_ok=True)
+    if not get_ampy('/configs/network_config.json', network_config_path, port) or not network_config_path.exists():
+        print('Could not read the network config from the reactor. Is it connected?')
+        exit(1)
+    with open(network_config_path, 'r') as f:
         network_config = json.load(f)
         reactor_id = network_config['reactor_id']
 
     print(f'Creating new experiment for reactor_id={reactor_id}')
-
-    with open(experiment_config, 'r') as f:
-        config_json = json.load(f)
+    print(f'Experiment config:\n{json.dumps(config_json, indent=4)}')
 
     current_timestamp = int(time.time())
 
-    # Store data to db.
+    # Store data to db. The experiment is only committed once its config is on
+    # the reactor, so that a failed upload does not leave an experiment behind.
     with Session(idec_engine()) as session:
         stmt = insert(Experiment).values(
             reactor_id=reactor_id,
@@ -510,7 +559,6 @@ def new_experiment(experiment_config, experiment_name, port):
         )
         result = session.execute(stmt)
         exp_id = result.inserted_primary_key[0]  # Access the newly inserted experiment_id
-        print('Inserted experiment id: ', exp_id)
 
         stmt_config = insert(ExperimentConfig).values(
             experiment_id=exp_id,
@@ -520,13 +568,18 @@ def new_experiment(experiment_config, experiment_name, port):
         )
 
         session.execute(stmt_config)
-        session.commit()
 
-    # store new experiment id on pico
-    config_json['experiment_id'] = exp_id
-    with open(DIR_TMP / 'experiment_config.json', 'w') as f:
-        json.dump(config_json, f)
-    put_ampy(DIR_TMP / 'experiment_config.json', '/configs/experiment_config.json', port)
+        # store new experiment id on pico
+        config_json['experiment_id'] = exp_id
+        with open(DIR_TMP / 'experiment_config.json', 'w') as f:
+            json.dump(config_json, f)
+        if not put_ampy(DIR_TMP / 'experiment_config.json', '/configs/experiment_config.json', port):
+            session.rollback()
+            print('Could not write the experiment config to the reactor, no experiment was created.')
+            exit(1)
+
+        session.commit()
+        print('Inserted experiment id: ', exp_id)
 
 
 def download_experiment_config(port, local_path):
@@ -543,27 +596,33 @@ def run_script(script: Path, port):
     return run_ampy(f'run {script}', port)
 
 def run_ampy(command, port):
+    """Runs an ampy command, returns whether it succeeded."""
     ampy_command = f'ampy -p {port} {command}'
     print(f'Running command: {command}')
     res = subprocess.run(ampy_command, shell=True)
     if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
+    return res.returncode == 0
 
 
 def get_ampy(pico_path, local_path, port):
+    """Copies a file from the pico, returns whether it succeeded."""
     ampy_command = f'ampy -p {port} get {pico_path} {local_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
     if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
+    return res.returncode == 0
 
 
 def put_ampy(local_path, pico_path, port):
+    """Copies a file to the pico, returns whether it succeeded."""
     ampy_command = f'ampy -p {port} put {local_path} {pico_path}'
     print(f'Running command: {ampy_command}')
     res = subprocess.run(ampy_command, shell=True)
     if res.returncode != 0:
         print(f'Error running command: {res.stderr}')
+    return res.returncode == 0
 
 
 def rm_ampy(remote_path, port, check_exists=True):
@@ -888,7 +947,12 @@ if __name__ == '__main__':
 
     parser_experiment_new = experiment_subparsers.add_parser('new', help='Start a new experiment')
     parser_experiment_new.add_argument('name', type=str, help='Name of the new experiment')
-    parser_experiment_new.add_argument('config', type=str, help='Path to the new experiment config file')
+    parser_experiment_new.add_argument('config', type=str, nargs='?', default=None,
+                                       help='Path to the new experiment config file. If omitted, the config is built from the options below.')
+    parser_experiment_new.add_argument('--incubator', type=str, choices=['left', 'right', 'both'], default=None,
+                                       help="Incubator that feeds the lagoon, 'both' feeds it in equal parts. Default: left.")
+    parser_experiment_new.add_argument('--flow_rate', type=float, default=None,
+                                       help='Lagoon flow rate in volumes/hour. Default: 0.')
 
     args = parser.parse_args()
 
@@ -1029,11 +1093,25 @@ if __name__ == '__main__':
                 exit(1)
             update_experiment_config(path, port)
         elif args.experiment_command == 'new':
-            path = Path(args.config)
-            if not path.exists():
-                print(f'Config file {path} does not exist.')
-                exit(1)
-            new_experiment(path, args.name, port)
+            if args.config is not None:
+                if args.incubator is not None or args.flow_rate is not None:
+                    print('Provide either a config file or --incubator/--flow_rate, not both.')
+                    exit(1)
+                path = Path(args.config)
+                if not path.exists():
+                    print(f'Config file {path} does not exist.')
+                    exit(1)
+                with open(path, 'r') as f:
+                    config_json = json.load(f)
+            else:
+                flow_rate = 0.0 if args.flow_rate is None else args.flow_rate
+                if flow_rate < 0:
+                    print('Flow rate cannot be negative.')
+                    exit(1)
+                if flow_rate > 3:
+                    print('Warning: setting flow rate about 3 volums/hour is not recommended.')
+                config_json = build_experiment_config(args.incubator or 'left', flow_rate)
+            new_experiment(config_json, args.name, port)
         elif args.experiment_command == 'get-config':
             path = Path(args.local_path)
             if not path.exists():
