@@ -5,6 +5,7 @@ from network_client import MqttClient
 from bridge import EvoBridge
 import config 
 import logging
+import socket
 from pathlib import Path
 
 
@@ -36,8 +37,10 @@ def main():
     logger = configure_logging()    
     serial = SerialComm(logger)
   
+    # MQTT client ids must be unique: the broker disconnects a client when another
+    # connects with the same id, so every bridge needs a distinct hostname.
     mqtt = MqttClient(
-        client_id=f"pico-bridge",
+        client_id=f"pico-bridge-{socket.gethostname()}",
         broker=config.MQTT_HOST,
         port=config.MQTT_PORT,
         logger = logger
