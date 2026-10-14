@@ -65,7 +65,7 @@ client = mqtt.Client()
 client.on_connect = on_connect
 
 # Connect to the MQTT broker
-broker_address = "10.66.4.7"  # Replace with your MQTT broker address
+broker_address = "192.168.4.1"  # the EvoHub on evo-net; replace to reach another broker
 port = 1883  # Default MQTT port
 client.connect(broker_address, port, 60)
 

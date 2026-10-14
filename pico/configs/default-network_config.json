@@ -1,7 +1,7 @@
 {
     "wifi_ssid": "evo-net",
     "wifi_pwd": "hungryphage",
-    "mqtt_host": "192.168.31.10",
+    "mqtt_host": "192.168.4.1",
     "mqtt_uname": "",
     "mqtt_pwd": "",
     "reactor_id": 1
