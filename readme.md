@@ -131,7 +131,13 @@ If you calibrated temperature, provide `--inc_left_measured_temps <t1> <t2> <t3>
 
 ### Register the reactor
 
-Once the reactor is set up and calibrated, register it in the database.
+Once the reactor is set up and calibrated, register it in the EvoHub's database.
+
+`register` and `experiment new` write to the database on the EvoHub, so run them
+from a computer joined to the hub's `evo-net` Wi-Fi: Evotool reaches the hub at
+`192.168.4.1` by default. To reach the hub over the lab network instead, set
+`DB_HOST` and `MQTT_HOST` to the hub's address, e.g.
+`DB_HOST=<hub-ip> MQTT_HOST=<hub-ip> poetry run python evotool.py register`.
 
 Run `poetry run python evotool.py register`.
 
@@ -141,7 +147,7 @@ Run `poetry run python evotool.py register`.
 
 You are asked to confirm in both cases. The resulting `reactor_id` is written back onto the reactor without touching its calibration or other on-pico state.
 
-After registering, verify that the reactor appears in the [dashboard](http://10.66.4.7:3000) reactor dropdown.
+After registering, verify that the reactor appears in the [dashboard](http://192.168.4.1:3000) reactor dropdown.
 
 
 ## Experiment Control
