@@ -590,7 +590,7 @@ sqlalchemy = ">=2.0.30,<3.0.0"
 type = "git"
 url = "https://github.com/Schwank-Lab/evoflow-monitor.git"
 reference = "main"
-resolved_reference = "20b7f463e955927a7b351c81ee46df0befc945d3"
+resolved_reference = "d6a9118918bf29b939c1e18678db3872e4605441"
 subdirectory = "evohub/evoflow_db"
 
 [[package]]
@@ -610,7 +610,7 @@ python-dotenv = "^1.0.1"
 type = "git"
 url = "https://github.com/Schwank-Lab/evoflow-monitor.git"
 reference = "main"
-resolved_reference = "20b7f463e955927a7b351c81ee46df0befc945d3"
+resolved_reference = "d6a9118918bf29b939c1e18678db3872e4605441"
 subdirectory = "evohub/evoflow_utils"
 
 [[package]]
@@ -2108,14 +2108,14 @@ six = ">=1.5"
 
 [[package]]
 name = "python-dotenv"
-version = "1.0.1"
+version = "1.2.4"
 description = "Read key-value pairs from a .env file and set them as environment variables"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "python-dotenv-1.0.1.tar.gz", hash = "sha256:e324ee90a023d808f1959c46bcbc04446a10ced277783dc6ee09987c37ec10ca"},
-    {file = "python_dotenv-1.0.1-py3-none-any.whl", hash = "sha256:f7b63ef50f1b690dddf550d03497b66d609393b40b564ed0d674909a68ebf16a"},
+    {file = "python_dotenv-1.2.4-py3-none-any.whl", hash = "sha256:42269a8a5b3fd54ffa6f3d84b18abed50064717576b4ecf03dc4a55d8aa04fdc"},
+    {file = "python_dotenv-1.2.4.tar.gz", hash = "sha256:f0d53e69935a851c0dcc78f3ab7aaccd8cabef0b92382b576b824212902873c0"},
 ]
 
 [package.extras]
@@ -3186,4 +3186,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "c3c3309067653d5554adb727ec24fafb30cda51d661ba42a063dcbb863a774bb"
+content-hash = "0988d1b5c42081d22b719e1e148de6dda4a3cb4af303af47d075c00c02e0c4f6"

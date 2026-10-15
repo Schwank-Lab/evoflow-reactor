@@ -19,6 +19,7 @@ pandas = ">=2.2.2,<3.0.0"
 scikit-learn = ">=1.5.1,<2.0.0"
 thonny = ">=4.1.4,<5.0.0"
 evoflow_db = { git = "https://github.com/Schwank-Lab/evoflow-monitor.git", branch = "main", subdirectory = "evohub/evoflow_db" }
+python-dotenv = ">=1.0.1,<2.0.0"
 
 [tool.poetry]
 package-mode = true

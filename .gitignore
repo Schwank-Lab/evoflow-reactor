@@ -13,3 +13,4 @@ client/configs
 .evotool.json
 calibration_logs
 dist
+.env

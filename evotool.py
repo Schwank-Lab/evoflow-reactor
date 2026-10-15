@@ -10,6 +10,12 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime
 import serial.tools.list_ports
 import shutil
+from dotenv import load_dotenv
+
+# The EvoHub's address and credentials, from .env next to this file (a copy of
+# example.env). Loaded before evoflow_db, which reads them when imported.
+load_dotenv(Path(__file__).parent / '.env')
+
 from evoflow_db.idec import Reactor, Experiment, ExperimentConfig
 from evoflow_db import idec_engine
 from sqlalchemy.orm import Session
