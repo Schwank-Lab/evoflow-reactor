@@ -133,13 +133,16 @@ If you calibrated temperature, provide `--inc_left_measured_temps <t1> <t2> <t3>
 
 Once the reactor is set up and calibrated, register it in the EvoHub's database.
 
-`register` and `experiment new` write to the database on the EvoHub, so run them
-from a computer joined to the hub's `evo-net` Wi-Fi: Evotool reaches the hub at
-`192.168.4.1` by default. To reach the hub over the lab network instead, set
-`DB_HOST` and `MQTT_HOST` to the hub's address, e.g.
-`DB_HOST=<hub-ip> MQTT_HOST=<hub-ip> poetry run python evotool.py register`.
+`register` and the experiment commands write to the database on the EvoHub.
+Evotool looks for the hub at `evohub.local`, which works when your computer is on
+the same network segment as the hub. Otherwise, tell Evotool the hub's address
+once per computer:
 
-Run `poetry run python evotool.py register`.
+```bash
+cp example.env .env      # then set EVOHUB_HOST in .env to the hub's IP address
+```
+
+Then, with the reactor connected by USB, run `poetry run python evotool.py register`.
 
 `register` reads the reactor name stored on the pico (you don't pass it again) and looks it up in the database:
  - if a reactor with that name already exists, it offers to **link** this hardware to it;
@@ -147,51 +150,34 @@ Run `poetry run python evotool.py register`.
 
 You are asked to confirm in both cases. The resulting `reactor_id` is written back onto the reactor without touching its calibration or other on-pico state.
 
-After registering, verify that the reactor appears in the [dashboard](http://192.168.4.1:3000) reactor dropdown.
+After registering, verify that the reactor appears in the dashboard's reactor dropdown (`http://evohub.local:3000`, or the hub's IP).
 
 
 ## Experiment Control
 
+All experiment commands talk to the reactor over USB, so connect it to your
+computer while running them.
+
 ## Creating a new experiment
 
-Run `poetry run python evotool.py experiment new <your_expreiment_name> <path/to/experiment/config>`
+Copy the experiment config template and edit it: which bioreactors are in use,
+their target OD and temperature, the lagoon flow rate (in lagoon volumes per
+hour) and the arabinose concentration.
 
-Experiment config needs to be saved as a valid json file, here's a default example that you can update as necessary:
-
+```bash
+cp pico/configs/default-experiment_config.json my_experiment.json
+poetry run python evotool.py experiment new <your_experiment_name> my_experiment.json
 ```
-{
-    "inc_left": {
-        "use": false,
-        "target_od": 0.7,
-        "target_temp": 37
-
-    },
-    "inc_right": {
-        "use": true,
-        "target_od": 0.7,
-        "target_temp": 37
-    },
-    "lagoon": {
-        "target_temp": 37,
-        "volume": 7,
-        "flow_rate": 0,
-        "inc_left_frac": 0.0,
-        "inc_right_frac": 1.0,
-        "arabinose_stock_concentration": 2000,
-        "arabinose_target_concentration": 0
-    }
-}
-```
-
-Save the file above to the filesystem and provide the path to this file to the evotool when creating a new experiment.
 
 ## Controlling experiment
 
-To start an experiment, run `poetry run python evotool.py experiment start`
+To start an experiment, run `poetry run python evotool.py experiment start`. The
+reactor runs the experiment from its next power-up, and keeps running it after a
+power cut.
 
 To pause an experiment, run `poetry run python evotool.py experiment pause`
 
-To update the flow rate, run `poetry run python evotool.py update-flow-rate 1.0`, where `1.0` is the desired flow rate.
+To update the flow rate, run `poetry run python evotool.py update-flow-rate 1.0`, where `1.0` is the desired flow rate in lagoon volumes per hour.
 
 ## Development
 
